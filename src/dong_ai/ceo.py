@@ -19,7 +19,24 @@ log = get_logger("ceo")
 
 
 class CEO:
-    """CEO — 项目全流程协调器"""
+    """CEO — 项目全流程协调器
+
+    Dong AI Company 的核心入口。管理完整项目生命周期：
+      1. 项目类型识别 (software/novel/game/analysis/audit)
+      2. 技能加载 (memory + ExperienceEngine 历史经验)
+      3. 设计阶段 (DesignEngine: 需求提取 + 架构设计)
+      4. 动态管线生成 (LLM 生成 3-6 个执行阶段)
+      5. 阶段执行 (WorkerPool: 多工人并行 + 自愈 + 交叉审查)
+      6. 董事会评分 (BoardReview: 阶段门 ≥ 6.0)
+      7. 需求覆盖检查 (未覆盖需求扣分)
+      8. 经验存档 (ExperienceEngine.debrief)
+      9. 最终报告生成
+
+    用法:
+        ceo = CEO(llm_client=my_llm)
+        ceo.run("Build a CLI tool for CSV processing")
+        print(ceo.report_path.read_text())
+    """
 
     def __init__(self, project_dir: str = None, design_engine=None,
                  llm_client=None, experience_engine=None):

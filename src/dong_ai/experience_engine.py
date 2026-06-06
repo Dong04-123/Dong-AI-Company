@@ -21,7 +21,27 @@ _LESSONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class ExperienceEngine:
-    """经验引擎 — 复盘、固化、召回"""
+    """经验引擎 — 复盘、固化、召回
+
+    Dong AI 的"越做越会做"核心模块。
+
+    流程:
+       项目完成 → debrief()  → 分析得失 → 写入 skill 文件
+       新项目   → recall()   → 搜索图记忆 → 注入 CEO 提示词
+
+    经验以 ~/.dong/lessons/ 下的 SKILL.md 格式存储，
+    按项目类型 + 关键词标签匹配。
+
+    用法:
+        engine = ExperienceEngine(llm=llm_client)
+        # 项目完成后复盘
+        path = engine.debrief("software", "Build CLI app", design_text,
+                              phases, [8.5, 9.0], report_text)
+        # 新项目启动前召回
+        context = engine.recall("Build a CLI tool", project_type="software")
+        # 注入到 CEO 提示词
+        ceo_system += context
+    """
 
     def __init__(self, llm=None):
         self.llm = llm
