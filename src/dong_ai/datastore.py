@@ -19,7 +19,7 @@ from __future__ import annotations
 import sqlite3, json, time, os
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Any
 
 
 class Datastore:
@@ -484,7 +484,7 @@ class GraphRepository:
 
 _repo_cache = {}
 
-def get_repo(name: str):
+def get_repo(name: str) -> Any:
     """获取 Repository 实例（带缓存）"""
     if name not in _repo_cache:
         ds = Datastore()

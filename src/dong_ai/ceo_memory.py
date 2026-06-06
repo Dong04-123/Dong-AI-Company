@@ -135,7 +135,7 @@ class CEOMemory:
                 c.execute("UPDATE sessions SET message_count = message_count - ?, compressed = compressed + 1 WHERE id=?", (len(ids), sid))
             c.commit()
 
-    def session_list(self, limit=10) -> list:
+    def session_list(self, limit: int = 10) -> list:
         return self.sessions.list_recent(limit)
 
     def session_load(self, sid: str) -> dict:
