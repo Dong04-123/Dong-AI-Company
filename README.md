@@ -1,14 +1,3 @@
-<div align="center">
-
-```
-██████╗  ██████╗ ███╗   ██╗ ██████╗     █████╗ ██╗
-██╔══██╗██╔═══██╗████╗  ██║██╔════╝    ██╔══██╗██║
-██║  ██║██║   ██║██╔██╗ ██║██║         ███████║██║
-██║  ██║██║   ██║██║╚██╗██║██║         ██╔══██║██║
-██████╔╝╚██████╔╝██║ ╚████║╚██████╗    ██║  ██║██║
-╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝    ╚═╝  ╚═╝╚═╝
-```
-
 # Dong AI Company
 
 **Cross-project memory and organizational governance for AI agents.**
@@ -22,11 +11,10 @@
 
 ```bash
 pip install dong-ai
-dong setup
+dong demo          # see it in action — no API key, no network calls
+dong setup         # configure providers
 dong make "a quarterly market analysis"
 ```
-
-</div>
 
 ---
 
@@ -34,14 +22,9 @@ dong make "a quarterly market analysis"
 
 [![asciicast](https://asciinema.org/a/l0Hobg20kKMgSdx5.svg)](https://asciinema.org/a/l0Hobg20kKMgSdx5)
 
-```bash
-pip install dong-ai
-dong demo
-```
-
-`dong demo` creates two fake projects in an isolated local SQLite database — no API
-key, no network calls — and shows how graph memory enables cross-project search,
-symbol drill-down, dependency impact analysis, and session resume.
+`dong demo` creates two fake projects in an isolated local SQLite database and shows
+how graph memory enables cross-project search, symbol drill-down, dependency impact
+analysis, and session resume. Zero config, zero API key, zero network calls.
 
 ---
 
@@ -230,6 +213,15 @@ v1.0.
 MIT — free for personal, research, and commercial use. Attribution required.
 
 ---
+
+```
+██████╗  ██████╗ ███╗   ██╗ ██████╗     █████╗ ██╗
+██╔══██╗██╔═══██╗████╗  ██║██╔════╝    ██╔══██╗██║
+██║  ██║██║   ██║██╔██╗ ██║██║         ███████║██║
+██║  ██║██║   ██║██║╚██╗██║██║         ██╔══██║██║
+██████╔╝╚██████╔╝██║ ╚████║╚██████╗    ██║  ██║██║
+╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝    ╚═╝  ╚═╝╚═╝
+```
 
 <div align="center">
   <a href="https://github.com/Dong04-123/Dong-AI-Company">Engine</a>
