@@ -87,7 +87,7 @@ avoid:
 
 _ = {
     "zh": {
-        "help_title": "Dong AI Company — 您的私人AI公司",
+        "help_title": "Dong AI Company — 你的私人AI公司",
         "quick_start": "快速开始",
         "cmd_setup": "交互式配置",
         "cmd_chat": "启动对话",
@@ -98,19 +98,35 @@ _ = {
         "info": "信息",
         "unknown": "未知命令",
         "available": "可用",
+        "no_api_key": "  ❌ 未检测到 API Key",
+        "setup_hint": "  {C.B}dong setup{C.R}  交互式配置",
+        "free_opts": "  {C.D}  免费: DeepSeek(500万) | Ollama(免费) | OpenAI(5美元){C.R}",
+        "graph_empty": "图记忆为空 — CEO 执行后自动填充",
+        "graph_usage": "用法: dong graph [list|view <id>|merge <from> <to>]",
+        "graph_nodata": "项目 {pid} 无图数据",
+        "graph_merged": "已合并, 目标项目现有 {n} 个符号",
+        "interrupted": "\n  Interrupted.",
     },
     "en": {
-        "help_title": "Dong AI Company — Your Private AI Company",
+        "help_title": "Dong AI Company",
         "quick_start": "Quick Start",
         "cmd_setup": "Interactive setup",
         "cmd_chat": "Start chat",
-        "cmd_run": "One-click project",
+        "cmd_run": "One-click execute",
         "cmd_serve": "Start API server",
         "mgmt": "Management",
         "auto": "Automation",
         "info": "Info",
         "unknown": "Unknown command",
         "available": "Available",
+        "no_api_key": "  ❌ No API key detected",
+        "setup_hint": "  {C.B}dong setup{C.R}  Configure (20+ providers)",
+        "free_opts": "  {C.D}  Free: DeepSeek | Ollama | OpenAI{C.R}",
+        "graph_empty": "Graph memory is empty — populated after running CEO",
+        "graph_usage": "Usage: dong graph [list|view <id>|merge <from> <to>]",
+        "graph_nodata": "Project {pid} has no graph data",
+        "graph_merged": "Merged. Target now has {n} symbols",
+        "interrupted": "\n  Interrupted.",
     },
 }
 
@@ -201,19 +217,18 @@ def main() -> None:
     if cmd == "graph": return _cmd_graph(args[1:])
     if cmd == "chat": return _start_tui()
     if cmd in ("update", "upgrade"): return _cmd_update()
-    if cmd in ("check", "doctor"): return _cmd_check()
     if cmd == "analyze": return _cmd_analyze(args[1:])
 
     # API Key 检查
-    if cmd in ("run", "edit", "debug"):
+    if cmd in ("run", "quick", "edit", "debug", "analyze"):
         try:
             from .model_pool import ModelPool
             pool = ModelPool()
             has_key = any(p.get("api_key") for p in pool.available())
             if not has_key:
-                print(f"  ❌ 未检测到 API Key")
-                print(f"  {C.B}dong setup{C.R}  交互式配置（支持20种模型）")
-                print(f"  {C.D}  免费选项: DeepSeek(500万token) | Ollama(本地免费) | OpenAI(5美元){C.R}")
+                print(f"{T('no_api_key')}")
+                print(f"{T('setup_hint')}")
+                print(f"{T('free_opts')}")
                 return
         except Exception:
             pass
@@ -222,7 +237,7 @@ def main() -> None:
     if cmd == "debug": return _cmd_debug(args[1:])
     if cmd == "company": return _cmd_company(args[1:])
     if cmd == "demo": from .demo import _cmd_demo; return _cmd_demo()
-    if cmd in ("make", "vision"): return _cmd_make(args)
+    if cmd in ("make", "vision"): return _cmd_make(args[1:])
     if cmd == "gateway": return _cmd_gateway(args[1:])
     print(f"{T('unknown')}: {cmd}")
     print(f"{T('available')}: demo, chat, run, serve, detect, config, skill, session, mcp, cron, webhook, setup, version")
@@ -641,7 +656,7 @@ def _cmd_graph(args) -> None:
     if not args or args[0] == "list":
         projects = gr.list_projects()
         if not projects:
-            print("图记忆为空 — CEO 执行项目后自动填充")
+            print(T("graph_empty"))
             return
         total_nodes = sum(p["nodes"] for p in projects)
         total_deps = sum(p["deps"] for p in projects)
@@ -660,7 +675,7 @@ def _cmd_graph(args) -> None:
         n = gr.merge_project(args[1], args[2])
         print(f"已合并, 目标项目现有 {n} 个符号")
         return
-    print("用法: dong graph [list|view <id>|merge <from> <to>]")
+    print(T("graph_usage"))
 
 # ═══════════════════════════════════════════════════════════
 # setup — 交互式配置向导

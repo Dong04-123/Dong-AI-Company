@@ -428,11 +428,11 @@ class WorkerPool:
                 if not peer_text:
                     continue
                 review = self._llm_call(
-                    [{"role": "user", "content": f"审查以下代码，看是否与你的工作兼容。\n\n代码:\n{peer_text}\n\n只输出：兼容/不兼容 + 理由"}],
-                    system=f"你是{peer.get('name','')}，负责交叉审查。一句废话都不要说。",
+                    [{"role": "user", "content": f"审查以下工作输出，是否与你的工作存在实际冲突（同名函数不同签名、互相矛盾的逻辑）。\n\n工作输出:\n{peer_text}\n\n仅当存在真实冲突时判'不兼容'，否则判'兼容'。\n只输出：兼容/不兼容 + 理由（一句话）"}],
+                    system=f"你是{peer.get('name','')}，负责交叉审查。",
                     max_tokens=1024, temperature=0.2,
                 )
-                if "不兼容" in review or "不通过" in review:
+                if "不兼容" in review or "不通过" in review or "incompatible" in review.lower() or "conflict" in review.lower():
                     all_passed = False
                     results[wid]["review_notes"] = (results[wid].get("review_notes", "") + f"\n{peer['name']}审查: {review[:200]}").strip()
                     print(f"        {wid} ← {peer['name']}: ⚠️ 不兼容")
