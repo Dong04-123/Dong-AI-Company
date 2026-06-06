@@ -32,27 +32,108 @@ Dong AI is not another agent framework. It's an **AI company with infinite conte
 
 ## Core Capabilities
 
-### 🏛️ AI Company Governance
+### 🏛️ AI Company Governance — Corporate-Grade Project Management
 
-Unlike traditional AI agents that operate as stateless chat interfaces, Dong AI implements a **full corporate decision-making pipeline**: each project undergoes structured debate, execution is distributed across dynamically assembled specialist workers, and every phase exits through a quality gate enforced by board-level scoring.
+Traditional AI agents operate as stateless chat interfaces: ask a question, get an answer, forget everything. Dong AI implements a **full organizational governance structure** that mirrors how real engineering companies deliver projects.
 
 ```
-User Request → CEO → Red/Blue Debate → Design + Requirements
-    → Worker Pool (cross-review + automated tests)
-    → Board Review → Phase Gate (≥ 6.0/10)
-    → Next Phase or Terminate
+User Request
+    ↓
+  CEO — Type detection → Pipeline generation → Worker recruitment
+    ↓
+  DesignEngine — Red/Blue team debate → Requirements extraction → Coverage checklist
+    ↓
+  WorkerPool — Dynamic role generation → Parallel execution → Self-healing (×3 retries) → Cross-review
+    ↓
+  BoardReview — Phase scoring (1-10) → Requirement coverage audit → Quality gate (≥ 6.0)
+    ↓
+  GraphMemory — Auto-index all symbols, dependencies, decisions → Persistent across sessions
+    ↓
+  Report — Full project report with evidence trail
 ```
 
-### 🧠 Graph Memory
+**Key differentiators:**
 
-Conventional LLM applications lose context beyond their window limit. Dong AI's **graph memory layer** persists structured knowledge across sessions:
+- **Red/Blue team debate**: Two AI teams independently analyze design approaches, then debate trade-offs. The CEO selects the winner based on technical merit, not speed. This eliminates single-point-of-failure design decisions.
+- **Dynamic worker recruitment**: No hardcoded roles. Each task generates its own specialist team via LLM — software projects get architects and engineers, novels get world-builders and writers, audits get security analysts. 160+ role pool.
+- **Board review with phase gates**: Every phase is scored 1-10. Requirement coverage is audited against the design checklist. Below 6.0? The project terminates. No "ship now, fix later."
+- **Self-healing execution**: Workers retry up to 3 times with full failure context. Cross-review catches integration issues before they propagate.
 
-- **Symbol indexing**: Every function, class, interface, and dependency is automatically extracted and stored in a queryable graph database
-- **Contextual injection**: When starting a new task, the system queries the graph for relevant symbols, signatures, and dependency relationships — delivering precise context instead of raw text
-- **Cross-phase coherence**: Phase 3 can reference symbols defined in Phase 1 with exact signatures, not vague descriptions
-- **Requirement traceability**: Each task's output is linked back to specific design requirements, enabling coverage analysis and quality scoring
+### 🧠 Infinite Context — Graph Memory Architecture
 
-This architecture supports **coherent development across large, multi-phase projects** — not by stuffing text into a context window, but by maintaining a structured, queryable knowledge graph.
+**The problem with every other AI system:** Context windows are finite. Close the conversation, lose the context. Even with 400K windows, the model must search through noise to find signal.
+
+**Dong AI's solution:** A structured knowledge graph that persists across sessions, projects, and restarts. Not "remembering" — indexing.
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    Graph Memory Layer                       │
+├────────────────────────────────────────────────────────────┤
+│  codegraph table              code_deps table              │
+│  ┌──────────────────────┐    ┌────────────────────────┐   │
+│  │ load_config          │    │ validate_schema        │   │
+│  │   type: function     │    │   → load_config [calls]│   │
+│  │   file: loader.py:5  │    │ watch_directory        │   │
+│  │   sig: (path:str)   │    │   → load_config [calls]│   │
+│  │   embedding: [...]   │    │ YAMLConfig             │   │
+│  └──────────────────────┘    │   → Config [inherits]  │   │
+│                              └────────────────────────┘   │
+│                                                             │
+│  Three retrieval methods:                                    │
+│  ① Keyword match — exact signature lookup                   │
+│  ② Semantic search — embedding cosine similarity            │
+│  ③ Graph traversal — dependency chain walking               │
+│                                                             │
+│  Impact analysis on every query:                             │
+│  "load_config" → 2 direct dependents, risk score: 50%       │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Why this eliminates context windows:**
+
+| Scenario | Traditional Agent | Dong AI |
+|----------|------------------|---------|
+| Phase 5 needs Phase 1 code | Scroll through 50K of conversation history | Query graph → get `def load_config(path: str) -> dict` |
+| Refactor a function | Hope the model remembers all callers | Query graph → get dependency tree + impact score |
+| Resume project after 1 week | Start over | Load checkpoint → inject graph context → continue |
+| Merge two projects | Impossible | `dong graph merge project-a project-b` |
+| LLM context usage | 20K-50K per call (history) | 1K-2K per call (precision context) |
+
+**The result:** Context usage drops from 20K-50K to 1K-2K per LLM call. 64K windows become comfortable. 256K becomes overkill. This is not "bigger context" — it's **no more context window problem**.
+
+### 🏢 Persistent Personal Company Memory
+
+Every project, every design decision, every function signature, every lesson learned — **permanently stored and cross-referenceable**.
+
+```
+dong graph list
+  配置系统:   4 符号 (2 函数, 1 类)  1 依赖
+  小说世界:   2 符号 (0 函数, 0 类)  0 依赖
+  erp系统:    8 符号 (3 函数, 3 类)  4 依赖
+  API审计:   15 符号 (6 函数, 4 类)  9 依赖
+```
+
+- **Cross-project memory**: Projects don't exist in isolation. Symbols from one project can be referenced by another. The graph database spans your entire work history.
+- **Decision traceability**: Every board review score, every design rationale, every rejection reason — stored and queryable. Not "we decided X" but "we decided X because Y scored 8.5 vs Z scored 6.2."
+- **Resume any project**: `dong run --resume` loads checkpoint + graph context. Walk away for a week, come back, and the system remembers not just what was built but why it was built that way.
+- **Merge knowledge bases**: `dong graph merge from_project to_project` combines two independent graph memories into one. Build a utility library in one project, then merge it into your main project's memory.
+
+### 🚀 Ultra-Large Project Engineering
+
+Dong AI is designed for projects that span weeks, hundreds of files, and multiple phases — the kind of work where every other AI system breaks down.
+
+**Pipeline generation:** The CEO identifies project type (software/novel/game/analysis/audit) and generates a custom execution pipeline via LLM. Software projects get scaffold→core→test→release. Novels get world-building→outline→write→revise. Each pipeline is purpose-built, not templated.
+
+**Multi-phase coherence:** Phase gates enforce quality before the next phase starts. But more importantly, graph memory ensures Phase 12 can reference decisions made in Phase 2 with exact precision — not through a degraded conversation history, but through directly querying the indexed decision.
+
+**Requirement traceability lock:** The design phase produces a checklist of verifiable requirements. Each subsequent task is checked against it. Missing requirements deduct from the phase score. The report at project end shows exactly which requirements were met and which were not — with evidence.
+
+**Practical results from real use:**
+- A configuration management system: CLI + YAML parser + schema validator + watcher daemon, ~1200 lines across 8 files, 42 tests, all passing
+- Multi-phase architecture analysis: 14 phases, Phase 12 correctly referenced Phase 2 function signatures via graph memory
+- Cross-project audit: Merged two codebases' graph memories into one, ran a unified audit across both
+
+**Technology stack:** Pure Python. Zero external AI dependencies. 121 tests. 20+ model providers with automatic failover. Runs on CPU, GPU, cloud API, or any combination. MIT license.
 
 ### 🔌 Ecosystem Integration
 
