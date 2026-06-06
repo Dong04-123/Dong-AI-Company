@@ -20,7 +20,7 @@ dong make "a quarterly market analysis"
 
 ## See it in action (no API key required)
 
-[![asciicast](https://asciinema.org/a/l0Hobg20kKMgSdx5.svg)](https://asciinema.org/a/l0Hobg20kKMgSdx5)
+[![asciicast](https://asciinema.org/a/HLs2j32N2szI4P2u.svg)](https://asciinema.org/a/HLs2j32N2szI4P2u)
 
 `dong demo` creates two fake projects in an isolated local SQLite database and shows
 how graph memory enables cross-project search, symbol drill-down, dependency impact
