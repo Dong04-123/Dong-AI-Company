@@ -121,6 +121,8 @@ def T(key: str) -> str:
 
 
 def main() -> None:
+    import signal
+    signal.signal(signal.SIGINT, lambda s, f: (print("\n  Interrupted."), sys.exit(0)))
     args = sys.argv[1:]
     cmd = args[0] if args else ""
 
@@ -191,7 +193,7 @@ def main() -> None:
     if cmd == "analyze": return _cmd_analyze(args[1:])
 
     # API Key 检查
-    if cmd in ("run", "quick", "edit", "debug"):
+    if cmd in ("run", "edit", "debug"):
         try:
             from .model_pool import ModelPool
             pool = ModelPool()
@@ -880,6 +882,8 @@ def _cmd_analyze(args: list[str]) -> None:
         ):
             print(token, end='', flush=True)
         print()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
     except Exception as e:
         print(f"  ❌ {e}")
 
@@ -929,6 +933,9 @@ def _cmd_edit(args: list[str]) -> None:
             resp += token
             print(token, end='', flush=True)
         print()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
+        return
     except Exception as e:
         print(f"  ❌ {e}")
         return
@@ -1023,6 +1030,9 @@ def _cmd_quick(args: list[str]) -> None:
             resp += token
             print(token, end='', flush=True)
         print()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
+        return
     except Exception as e:
         print(f"  ❌ {e}")
         return
@@ -1223,6 +1233,9 @@ def _cmd_debug(args: list[str]) -> None:
             analysis += token
             print(token, end='', flush=True)
         print()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
+        return
     except Exception as e:
         print(f"  ❌ LLM 分析失败: {e}")
         analysis = ""
