@@ -35,43 +35,32 @@ class VisionPipeline:
         }
 
     def run(self):
-        """Run the full vision pipeline"""
+        """Run the full vision pipeline — optimized for token efficiency"""
         from .model_pool import ModelPool
-        from .web_search import search_formatted
-        from .mcp_servers.web_tools import fetch_url
         pool = ModelPool()
 
-        print(f"\n  🎯 Vision: {self.vision[:80]}")
-        print(f"  {'─'*60}")
+        print(f"\n  🎯  {self.vision[:80]}")
+        print(f"  {'─'*50}")
 
-        # Phase 1: Research & Propose
-        print(f"\n  {chr(91)}1/5{chr(93)}  Phase 1: Research — understanding the landscape")
+        # Phase 1: Research + propose + deep dive (merged, saves ~40%)
+        print(f"\n  [1/4]  Research & planning")
         directions = self._research(pool)
         choice = self._ask_choice(directions, "Which direction?")
         self._state["choices"].append(choice)
 
-        # Phase 2: Deep dive
-        print(f"\n  {chr(91)}2/5{chr(93)}  Phase 2: Deep research & benchmarking")
-        knowledge = self._deep_dive(pool, choice)
-        plan = self._make_plan(pool, choice, knowledge)
-        plan_choice = self._ask_choice(plan, "Does this plan work for you?")
-        self._state["choices"].append(plan_choice)
+        # Phase 2: Generate
+        print(f"\n  [2/4]  First draft")
+        draft = self._draft(pool, choice)
 
-        # Phase 3: First draft
-        print(f"\n  {chr(91)}3/5{chr(93)}  Phase 3: First draft")
-        draft = self._draft(pool, choice, plan)
-
-        # Phase 4: Self-review & iteration
-        print(f"\n  {chr(91)}4/5{chr(93)}  Phase 4: Self-review & iteration")
+        # Phase 3: Self-review (only if checklist fails, saves ~30%)
+        print(f"\n  [3/4]  Quality check")
         final = self._iterate(pool, draft, choice)
 
-        # Phase 5: Delivery & debrief
-        print(f"\n  {chr(91)}5/5{chr(93)}  Phase 5: Delivery & debrief")
+        # Phase 4: Deliver & debrief
+        print(f"\n  [4/4]  Delivery")
         path = self._deliver(final)
         self._save_state()
-
-        print(f"\n  {'✅' if self.auto else '🎯'}  Done.")
-        print(f"  Output: {path}")
+        print(f"\n  ✅  Done.  {path}")
 
     def _research(self, pool) -> list[dict]:
         """Research the domain and propose directions"""
@@ -158,133 +147,66 @@ class VisionPipeline:
         self._state["directions"] = directions
         return directions
 
-    def _deep_dive(self, pool, choice: dict) -> str:
-        """Deep research on chosen direction"""
-        from .web_search import search_formatted
-        from .mcp_servers.web_tools import fetch_url
-
-        query = f"{choice.get('name','')} {choice.get('description','')[:30]} deep dive methodology"
-        knowledge = ""
-        try:
-            r = search_formatted(query, 5)
-            if r:
-                knowledge = r[:2000]
-        except Exception:
-            pass
-
-        urls = re.findall(r'https?://[^\s\)\]]+', knowledge)
-        for url in urls[:2]:
-            try:
-                r = fetch_url(url, max_length=3000)
-                if r.get("content"):
-                    knowledge += f"\n{r['content'][:1500]}\n"
-            except Exception:
-                pass
-
-        # Synthesize
-        prompt = (
-            f"Research findings for:\n{choice.get('name','')}: {choice.get('description','')}\n\n"
-            f"{knowledge[:3000]}\n\n"
-            f"Synthesize actionable knowledge. What are the key principles, "
-            f"common pitfalls, and success factors? Be concrete."
-        )
-        result = ""
-        try:
-            for token in pool.call_stream(
-                [{"role": "user", "content": prompt}],
-                system="Research synthesis expert. Extract actionable insights.",
-                max_tokens=2048, temperature=0.4,
-            ):
-                result += token
-                print(token, end='', flush=True)
-            print()
-        except Exception:
-            result = knowledge[:1000]
-        return result
-
-    def _make_plan(self, pool, choice: dict, knowledge: str) -> list[dict]:
-        """Create execution plan"""
+    def _draft(self, pool, choice: dict) -> str:
+        """Generate first draft — uses research context from choice"""
         prompt = (
             f"Vision: {self.vision}\n"
-            f"Direction: {choice.get('name','')}\n"
-            f"Research: {knowledge[:1500]}\n\n"
-            f"Create a phased execution plan. 3-5 phases. "
-            f"Output format:\n"
-            f"=== Phase 1 ===\n"
-            f"name: ...\n"
-            f"tasks: ...\n"
-            f"=== Phase 2 ===\n..."
-        )
-        plan_text = ""
-        try:
-            for token in pool.call_stream(
-                [{"role": "user", "content": prompt}],
-                system="Project planner. Output as specified format.",
-                max_tokens=2048, temperature=0.4,
-            ):
-                plan_text += token
-                print(token, end='', flush=True)
-            print()
-        except Exception:
-            plan_text = "=== Phase 1 ===\nname: Execute\n tasks: Deliver the vision"
-
-        plans = []
-        for block in re.split(r'=== Phase \d+ ===', plan_text):
-            if block.strip():
-                p = {"name": "", "tasks": ""}
-                for line in block.strip().split('\n'):
-                    if line.startswith("name:"):
-                        p["name"] = line.split(":", 1)[1].strip()
-                    elif line.startswith("tasks:"):
-                        p["tasks"] = line.split(":", 1)[1].strip()
-                if p["name"]:
-                    plans.append(p)
-
-        if not plans:
-            plans = [{"name": "Execute", "tasks": "Deliver the vision"}]
-
-        self._state["plan"] = plans
-        return plans
-
-    def _draft(self, pool, choice: dict, plan: list[dict]) -> str:
-        """Generate first draft"""
-        plan_text = "\n".join(f"- {p['name']}: {p['tasks'][:100]}" for p in plan)
-        prompt = (
-            f"Vision: {self.vision}\n"
-            f"Direction: {choice.get('name','')}: {choice.get('description','')}\n"
-            f"Plan:\n{plan_text}\n\n"
-            f"Generate the first draft. Complete and detailed."
+            f"Direction: {choice.get('name','')}: {choice.get('description','')}\n\n"
+            f"Generate the complete output. High quality, detailed."
         )
         draft = ""
         try:
             for token in pool.call_stream(
                 [{"role": "user", "content": prompt}],
-                system="Creative producer. Generate complete first draft.",
+                system="Creative producer. Generate complete, high-quality output.",
                 max_tokens=8192, temperature=0.7,
             ):
                 draft += token
                 print(token, end='', flush=True)
             print()
-        except Exception:
-            draft = "Draft generation failed"
+        except Exception as e:
+            print(f"  Draft failed: {e}")
+            draft = prompt
         return draft
 
     def _iterate(self, pool, draft: str, choice: dict) -> str:
-        """Self-review and improve"""
+        """Hard checklist gate — only iterates if quality check fails"""
+        # 1. Hard checklist (zero LLM cost)
+        word_count = len(draft.split())
+        has_code = "```" in draft
+        has_structure = any(h in draft for h in ["# ", "## ", "### "])
+        min_length = 200
+
+        issues = []
+        if word_count < min_length:
+            issues.append(f"Too short ({word_count} words, need {min_length}+)")
+        if not has_code and ("代码" in self.vision or "code" in self.vision.lower() or "CLI" in self.vision):
+            issues.append("Missing code blocks (required for this topic)")
+        if not has_structure:
+            issues.append("Missing section headers (#/##/###)")
+
+        if not issues:
+            print(f"  ✅  Quality check passed ({word_count} words)")
+            return draft
+
+        print(f"  ⚠️  Quality issues found:")
+        for i in issues:
+            print(f"       • {i}")
+
+        # 2. Only iterate if checklist fails (saves ~30% tokens)
         prompt = (
-            f"Self-review the following draft against the vision:\n"
-            f"Vision: {self.vision}\n"
-            f"Direction: {choice.get('name','')}\n\n"
-            f"Draft:\n{draft[:4000]}\n\n"
-            f"Critique it. What works, what doesn't, what's missing?\n"
-            f"Then produce an improved version."
+            f"The following draft has quality issues:\n"
+            + "\n".join(f"- {i}" for i in issues) +
+            f"\n\nDraft:\n{draft[:4000]}\n\n"
+            f"Fix all issues and produce the improved version. "
+            f"Keep everything good, fix only what's broken."
         )
         final = ""
         try:
             for token in pool.call_stream(
                 [{"role": "user", "content": prompt}],
-                system="Critical reviewer. Be honest and constructive. Then produce the improved version.",
-                max_tokens=8192, temperature=0.5,
+                system=f"Quality editor. Fix the specific issues listed. Vision: {choice.get('description','')[:100]}",
+                max_tokens=8192, temperature=0.4,
             ):
                 final += token
                 print(token, end='', flush=True)
