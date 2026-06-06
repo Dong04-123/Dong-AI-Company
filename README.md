@@ -10,7 +10,8 @@
 
 # Dong AI Company
 
-**Your Private AI Company**
+**Infinite Context AI Company — Graph Memory eliminates window limits.  
+Ultra-large project engineering. Deploy locally. Never lose context.**
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -25,7 +26,7 @@
 
 ---
 
-Dong AI is not another agent framework. It's an **AI company with full organizational governance** — red/blue team debate for decision making, dynamic worker pools for execution, graph memory for contextual coherence across large projects, and board review for quality gates. Works for software development, novel writing, game development, data analysis, code audit, and any project type.
+Dong AI is not another agent framework. It's an **AI company with infinite context** — graph memory eliminates window limits, enabling coherent development across ultra-large projects. Red/blue team debate for decision making, dynamic worker pools for execution, and board review for quality gates. Works for software development, novel writing, game development, data analysis, code audit, and any project type.
 
 ---
 
