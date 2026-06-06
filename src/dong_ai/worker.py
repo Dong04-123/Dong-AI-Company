@@ -287,10 +287,10 @@ class WorkerPool:
             f"请在你的项目目录中工作。使用 read_file 读取现有文件，write_file 写入修改。"
         )
 
-        if "opencode" in tools or "代码" in mission or "写" in mission or "实现" in mission:
-            return self._worker_code_impl(name, task_id, w_dir, system, user_msg)
-        elif "修改" in mission or "翻译" in mission or "替换" in mission or "edit" in mission.lower():
+        if "修改" in mission or "翻译" in mission or "替换" in mission or "edit" in mission.lower():
             return self._worker_edit_impl(name, task_id, self.project_dir, system, user_msg)
+        elif "opencode" in tools or "代码" in mission or "写" in mission or "实现" in mission:
+            return self._worker_code_impl(name, task_id, w_dir, system, user_msg)
         elif "pytest" in tools or "测试" in mission:
             return self._worker_test_impl(name, task_id, w_dir, system, user_msg)
         elif "集成" in mission or "codegraph" in tools:
