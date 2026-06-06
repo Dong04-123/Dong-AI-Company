@@ -3,21 +3,62 @@ import sys, os, json, time
 from pathlib import Path
 
 
+def _lang():
+    """检测用户语言偏好"""
+    l = os.environ.get("LANG", os.environ.get("LC_ALL", "zh_CN"))
+    return "en" if l.startswith("en") else "zh"
+
+
+_ = {
+    "zh": {
+        "help_title": "Dong AI Company — 您的私人AI公司",
+        "quick_start": "快速开始",
+        "cmd_setup": "交互式配置",
+        "cmd_chat": "启动对话",
+        "cmd_run": "一键执行",
+        "cmd_serve": "启动 API",
+        "mgmt": "管理",
+        "auto": "自动化",
+        "info": "信息",
+        "unknown": "未知命令",
+        "available": "可用",
+    },
+    "en": {
+        "help_title": "Dong AI Company — Your Private AI Company",
+        "quick_start": "Quick Start",
+        "cmd_setup": "Interactive setup",
+        "cmd_chat": "Start chat",
+        "cmd_run": "One-click project",
+        "cmd_serve": "Start API server",
+        "mgmt": "Management",
+        "auto": "Automation",
+        "info": "Info",
+        "unknown": "Unknown command",
+        "available": "Available",
+    },
+}
+
+
+def T(key):
+    lang = _lang()
+    return _.get(lang, _["zh"]).get(key, _["zh"].get(key, key))
+
+
 def main():
     args = sys.argv[1:]
     cmd = args[0] if args else ""
 
     if not cmd or cmd in ("-h", "--help", "help"):
-        print("Dong AI Company — 您的私人AI公司")
+        print(f"{T('help_title')}")
         print("=" * 50)
-        print("快速开始:  dong setup      交互式配置")
-        print("           dong chat      启动对话")
-        print("           dong run \"需求\" 一键执行")
-        print("           dong serve     启动 API")
+        print(f"{T('quick_start')}:  dong setup      {T('cmd_setup')}")
+        print(f"           dong chat      {T('cmd_chat')}")
+        print(f'           dong run "需求" {T("cmd_run")}')
+        print(f"           dong serve     {T('cmd_serve')}")
         print("=" * 50)
-        print("管理:      config  skill  session  detect")
-        print("自动化:    cron   webhook  mcp")
-        print("信息:      version")
+        print(f"{T('mgmt')}:     config  skill  session  detect")
+        print(f"{T('auto')}:    cron   webhook  mcp")
+        print(f"{T('info')}:      version")
         return
 
     if cmd in ("-v", "--version", "version"):
@@ -36,8 +77,8 @@ def main():
     if cmd == "setup": return _cmd_setup()
     if cmd == "chat": return _start_tui()
 
-    print(f"未知命令: {cmd}")
-    print("可用: chat, run, serve, detect, config, skill, session, mcp, cron, webhook, setup, version")
+    print(f"{T('unknown')}: {cmd}")
+    print(f"{T('available')}: chat, run, serve, detect, config, skill, session, mcp, cron, webhook, setup, version")
     sys.exit(1)
 
 
