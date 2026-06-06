@@ -712,20 +712,28 @@ def _cmd_setup() -> None:
         if 0 <= idx < len(available):
             sel = available[idx]
             print(f"┊    主模型: {sel['name']} ({sel['models'][0]})")
+            mem.config_set("provider", sel["id"])
 
-    # 5. 上下文配置
-    print("┊")
-    print("┊  📋 上下文窗口配置（输入数字，直接回车使用推荐值）:")
-    ceo_ctx = input(f"┊    CEO 上下文 (推荐 64000): ").strip()
-    if ceo_ctx.isdigit(): mem.config_set("ceo_context", ceo_ctx)
-    worker_ctx = input(f"┊    工人上下文 (推荐 32000): ").strip()
-    if worker_ctx.isdigit(): mem.config_set("worker_context", worker_ctx)
-    ceo_tokens = input(f"┊    CEO 最大回复 (推荐 8192): ").strip()
-    if ceo_tokens.isdigit(): mem.config_set("ceo_max_tokens", ceo_tokens)
-    worker_tokens = input(f"┊    工人最大回复 (推荐 4096): ").strip()
-    if worker_tokens.isdigit(): mem.config_set("worker_max_tokens", worker_tokens)
-
-    # 6. 保存并验证
+    # 4.5 API Key 录入
+    if sel and not sel.get("api_key"):
+        print("┊")
+        print(f"┊  📋 {sel['name']} 需要 API Key")
+        env_key_name = PROVIDERS.get(sel["id"], {}).get("env_key", "")
+        if env_key_name:
+            new_key = input(f"┊  输入 {sel['name']} API Key (留空跳过): ").strip()
+            if new_key:
+                # 写入 ~/.hermes/.env
+                env_path = Path.home() / ".hermes" / ".env"
+                env_path.parent.mkdir(parents=True, exist_ok=True)
+                env_lines = []
+                if env_path.exists():
+                    env_lines = [l for l in env_path.read_text().split("\n")
+                                 if l.strip() and not l.startswith(f"{env_key_name}=")]
+                env_lines.append(f"{env_key_name}={new_key}")
+                env_path.write_text("\n".join(env_lines) + "\n")
+                # 设到当前环境
+                os.environ[env_key_name] = new_key
+                print(f"┊  ✅ {sel['name']} 已配置")
     print("┊")
     print("┊  ✅ 配置已保存")
     print("┊")
