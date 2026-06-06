@@ -286,6 +286,8 @@ class WorkerPool:
 
         if "opencode" in tools or "代码" in mission or "写" in mission or "实现" in mission:
             return self._worker_code_impl(name, task_id, w_dir, system, user_msg)
+        elif "修改" in mission or "翻译" in mission or "替换" in mission or "edit" in mission.lower():
+            return self._worker_edit_impl(name, task_id, self.project_dir, system, user_msg)
         elif "pytest" in tools or "测试" in mission:
             return self._worker_test_impl(name, task_id, w_dir, system, user_msg)
         elif "集成" in mission or "codegraph" in tools:
@@ -309,6 +311,56 @@ class WorkerPool:
         for fn, args, ret in sigs:
             interfaces.append({"module_id": task_id, "name": fn, "signature": args, "return_type": ret or ""})
         return {"status": "ok", "files": [str(target_file)], "interfaces": interfaces, "lessons": [], "review_notes": ""}
+
+    # ── 修改类员工（直接改项目文件）──
+    def _worker_edit_impl(self, name: str, task_id: str, proj_dir: Path, system: str, user_msg: str) -> dict:
+        # First, have LLM identify what file to modify
+        plan = self._llm_call([{"role": "user", "content": (
+            f"{user_msg}\n\n"
+            f"项目目录: {proj_dir}\n"
+            f"首先，告诉我你要修改哪个文件？列出文件路径和修改方案。"
+        )}], system=system, max_tokens=2048, temperature=0.3)
+
+        # Parse target file from plan (simple heuristic: look for src/ path)
+        import re as _re
+        paths = _re.findall(r'(src/dong_ai/\S+\.py)', plan)
+        target = str(proj_dir / paths[0]) if paths else str(proj_dir / "src/dong_ai/cli.py")
+        
+        try:
+            from pathlib import Path as _Path
+            p = _Path(target)
+            current = p.read_text(encoding="utf-8") if p.exists() else "(file not found)"
+        except:
+            current = "(read error)"
+
+        # Now have LLM read the file and produce the modified version
+        result = self._call_llm_with_tools(
+            [{"role": "user", "content": (
+                f"{user_msg}\n\n"
+                f"项目目录: {proj_dir}\n"
+                f"目标文件: {target}\n\n"
+                f"当前文件内容 ({len(current.split(chr(10)))} 行):\n"
+                f"```\n{current[:12000]}\n```\n\n"
+                f"请输出修改后的完整文件内容，用```python ... ```代码块包裹。"
+                f"保持原始文件的缩进和风格。只做必要的修改。"
+            )}],
+            system=system, max_tokens=16384, temperature=0.3,
+        )
+
+        blocks = _re.findall(r'```(?:python)?\n(.*?)```', result, _re.DOTALL)
+        new_content = blocks[0] if blocks else ""
+
+        if new_content and new_content != current and len(new_content) > 100:
+            p = _Path(target)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(new_content, encoding="utf-8")
+            print(f"        {name}: 修改 {p.name} ({len(new_content)} chars)")
+            return {"status": "ok", "files": [str(p)], "interfaces": [],
+                    "lessons": [{"pattern": f"edit_{task_id}", "detail": f"Modified {p.name}", "severity": "info"}],
+                    "review_notes": f"Modified {p.name}"}
+        else:
+            print(f"        {name}: 未产生有效修改")
+            return {"status": "ok", "files": [], "interfaces": [], "lessons": [], "review_notes": "no changes produced"}
 
     # ── 测试类员工 ──
     def _worker_test_impl(self, name: str, task_id: str, w_dir: Path, system: str, user_msg: str) -> dict:
