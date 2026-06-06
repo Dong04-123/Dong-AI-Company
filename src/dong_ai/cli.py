@@ -75,6 +75,7 @@ def main():
     if cmd == "cron": return _cmd_cron(args[1:])
     if cmd == "webhook": return _cmd_webhook(args[1:])
     if cmd == "setup": return _cmd_setup()
+    if cmd == "graph": return _cmd_graph(args[1:])
     if cmd == "chat": return _start_tui()
 
     print(f"{T('unknown')}: {cmd}")
@@ -300,6 +301,38 @@ def _cmd_webhook(args):
         f.parent.mkdir(parents=True,exist_ok=True); f.write_text(json.dumps(hooks,ensure_ascii=False,indent=2))
         print(f"  ✅ 已配置, POST {args[1]}/webhook"); return
     print("用法: dong webhook [list|set-url <url>]")
+
+# ═══════════════════════════════════════════════════════════
+# graph — 图记忆管理
+# ═══════════════════════════════════════════════════════════
+
+def _cmd_graph(args):
+    """查看和管理图记忆"""
+    from dong_ai.datastore import get_repo
+    gr = get_repo("graph")
+    if not args or args[0] == "list":
+        projects = gr.list_projects()
+        if not projects:
+            print("图记忆为空 — CEO 执行项目后自动填充")
+            return
+        total_nodes = sum(p["nodes"] for p in projects)
+        total_deps = sum(p["deps"] for p in projects)
+        print(f"图记忆: {len(projects)} 个项目, {total_nodes} 符号, {total_deps} 依赖")
+        print()
+        for p in projects:
+            print(f"  {p['id']:<30} {p['nodes']:>4} 符号 ({p['functions']} 函数, {p['classes']} 类)  {p['deps']} 依赖")
+        return
+    if args[0] == "view" and len(args) >= 2:
+        pid = args[1]
+        kw = args[2:] if len(args) > 2 else None
+        ctx = gr.format_context(pid, kw)
+        print(ctx if ctx else f"项目 {pid} 无图数据")
+        return
+    if args[0] == "merge" and len(args) >= 3:
+        n = gr.merge_project(args[1], args[2])
+        print(f"已合并, 目标项目现有 {n} 个符号")
+        return
+    print("用法: dong graph [list|view <id>|merge <from> <to>]")
 
 # ═══════════════════════════════════════════════════════════
 # setup — 交互式配置向导

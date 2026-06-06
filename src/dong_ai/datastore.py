@@ -328,15 +328,12 @@ class GraphRepository:
         return [{"name": r[0], "type": r[1], "file": r[2], "signature": r[3]} for r in cur.fetchall()]
 
     def format_context(self, project_id: str, keywords: list = None) -> str:
-        """格式化为 LLM 友好的上下文文本"""
         parts = []
-        # 节点
         nodes = self.get_project_nodes(project_id)
         if nodes:
             fn_count = sum(1 for n in nodes if n["node_type"] == "function")
             cls_count = sum(1 for n in nodes if n["node_type"] == "class")
             parts.append(f"📊 项目代码库: {len(nodes)} 符号 ({fn_count} 函数, {cls_count} 类)")
-
             if keywords:
                 for kw in keywords:
                     matches = self.query(kw, project_id)
@@ -344,15 +341,31 @@ class GraphRepository:
                         parts.append(f"\n🔍 与「{kw}」相关的符号:")
                         for m in matches[:5]:
                             parts.append(f"  · {m['name']} ({m['type']}) in {m['file']}: {m.get('signature','')[:80]}")
-
-        # 依赖
         deps = self.get_deps(project_id)
         if deps:
             parts.append(f"\n🔗 依赖关系: {len(deps)} 条")
             for d in deps[:10]:
                 parts.append(f"  {d['from_node']} → {d['to_node']} [{d['dep_type']}]")
-
         return "\n".join(parts) if parts else ""
+
+    def list_projects(self) -> list:
+        cur = self.c.execute(
+            "SELECT project_id, COUNT(*) as node_count, "
+            "SUM(CASE WHEN node_type='function' THEN 1 ELSE 0 END) as fn_count, "
+            "SUM(CASE WHEN node_type='class' THEN 1 ELSE 0 END) as cls_count "
+            "FROM codegraph GROUP BY project_id ORDER BY node_count DESC LIMIT 50")
+        projects = []
+        for r in cur.fetchall():
+            dc = self.c.execute("SELECT COUNT(*) FROM code_deps WHERE project_id=?", (r[0],))
+            projects.append({"id": r[0], "nodes": r[1], "functions": r[2] or 0,
+                             "classes": r[3] or 0, "deps": dc.fetchone()[0]})
+        return projects
+
+    def merge_project(self, from_id: str, to_id: str) -> int:
+        self.c.execute("UPDATE codegraph SET project_id=? WHERE project_id=?", (to_id, from_id))
+        self.c.execute("UPDATE code_deps SET project_id=? WHERE project_id=?", (to_id, from_id))
+        self.c.commit()
+        return self.c.execute("SELECT COUNT(*) FROM codegraph WHERE project_id=?", (to_id,)).fetchone()[0]
 
 
 # ── 工厂 ──
