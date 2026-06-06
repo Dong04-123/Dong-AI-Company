@@ -71,10 +71,9 @@ class CEO:
             self._mode_config = {"ceo_context": 32768, "ceo_max_tokens": 8192}
 
     def run(self, user_request: str, resume: bool = False):
-        """全流程入口"""
+        """全流程入口 — 自动识别项目类型，路由到对应管线"""
         log.info("ceo_run", request=user_request[:50], resume=resume)
 
-        # 检查 checkpoint
         if resume:
             ckpt = self._load_checkpoint()
             if ckpt:
@@ -82,6 +81,7 @@ class CEO:
                 self.plan = ckpt.get("plan", {})
                 phases = ckpt.get("phases", [])
                 start_idx = ckpt["phase_idx"]
+                project_type = ckpt.get("project_type", "software")
             else:
                 print("  ⚠️ 没有 checkpoint，从头开始")
                 resume = False
@@ -91,7 +91,19 @@ class CEO:
             print(f"  Dong AI 启动 | {user_request[:40]}")
             print("█" * 60)
 
-            # 加载相关技能到上下文
+            # 识别项目类型
+            project_type = self._detect_project_type(user_request)
+            self._project_type = project_type
+            type_labels = {
+                "software": "💻 软件开发",
+                "novel": "📖 小说创作",
+                "game": "🎮 游戏开发",
+                "analysis": "📊 分析报告",
+                "audit": "🔍 审计审查",
+            }
+            print(f"  📋 识别项目类型: {type_labels.get(project_type, project_type)}")
+
+            # 加载相关技能
             skill_context = ""
             try:
                 from .memory import load_relevant_skills, format_skills_for_prompt
@@ -102,8 +114,8 @@ class CEO:
             except Exception:
                 pass
 
-            # 设计阶段（注入技能上下文）
-            print("\n  📋 阶段 1: 设计方案")
+            # 设计阶段
+            print("\n  📋 设计阶段")
             enriched_request = user_request
             if skill_context:
                 enriched_request = f"{user_request}\n\n{skill_context}"
@@ -119,13 +131,10 @@ class CEO:
             self.ds.add_decision("design_final", design_result["design"][:500])
             self._design = design_result["design"]
 
-            # 规划阶段
-            print("\n  📋 阶段 2: 拆模块")
-            plan = self._make_plan(design_result["design"])
-            self.plan = plan
-            (self.plan_path).write_text(json.dumps(plan, ensure_ascii=False, indent=2))
-
-            phases = self._split_phases(plan)
+            # 根据项目类型生成管线阶段
+            phases = self._build_pipeline(project_type, design_result["design"])
+            self.plan = {"project_name": design_result.get("project_name", "未知"), "phases": phases}
+            (self.plan_path).write_text(json.dumps(self.plan, ensure_ascii=False, indent=2))
             start_idx = 0
 
         # 执行阶段
@@ -311,10 +320,66 @@ class CEO:
             "phase_idx": phase_idx,
             "phases": phases,
             "plan": plan,
+            "project_type": getattr(self, "_project_type", "software"),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         self.checkpoint_path.write_text(json.dumps(ckpt, ensure_ascii=False, indent=2))
         log.info("checkpoint_saved", phase_idx=phase_idx)
+
+    # ── 项目类型检测与管线路由 ──
+
+    def _detect_project_type(self, request: str) -> str:
+        """识别项目类型：software / novel / game / analysis / audit"""
+        try:
+            resp = self.llm.chat([{"role": "user", "content": (
+                f"用户需求：{request[:200]}\n\n"
+                f"判断这是哪种项目类型？只输出类型名，不要其他内容：\n"
+                f"software - 软件开发/工具/系统/API\n"
+                f"novel    - 小说/故事/创作/世界观\n"
+                f"game     - 游戏/交互/玩法\n"
+                f"analysis - 分析/研究/报告\n"
+                f"audit    - 审计/审查/检查"
+            )}], system="分类专家。只输出类型名。", max_tokens=50, temperature=0.1)
+            for t in ("software", "novel", "game", "analysis", "audit"):
+                if t in resp.text.lower():
+                    return t
+        except Exception:
+            pass
+        return "software"
+
+    def _build_pipeline(self, project_type: str, design: str) -> list:
+        """根据项目类型生成执行管线"""
+        pipelines = {
+            "software": [
+                {"name": "架构搭建", "tasks": [{"id": "scaffold", "name": "项目脚手架", "description": "创建目录结构、配置文件", "deps": []}]},
+                {"name": "核心开发", "tasks": [{"id": "core", "name": "核心模块", "description": design[:300], "deps": ["scaffold"]}]},
+                {"name": "测试集成", "tasks": [{"id": "test", "name": "测试与集成", "description": "单元测试、集成测试", "deps": ["core"]}]},
+                {"name": "文档发布", "tasks": [{"id": "docs", "name": "文档与发布", "description": "README、CHANGELOG、版本号", "deps": ["test"]}]},
+            ],
+            "novel": [
+                {"name": "世界观", "tasks": [{"id": "world", "name": "世界观设定", "description": "角色、地点、时间线", "deps": []}]},
+                {"name": "大纲", "tasks": [{"id": "outline", "name": "章节大纲", "description": design[:300], "deps": ["world"]}]},
+                {"name": "创作", "tasks": [{"id": "write", "name": "正文创作", "description": "逐章写作", "deps": ["outline"]}]},
+                {"name": "修订", "tasks": [{"id": "revise", "name": "修订润色", "description": "一致性检查、润色", "deps": ["write"]}]},
+            ],
+            "game": [
+                {"name": "设计文档", "tasks": [{"id": "gdd", "name": "游戏设计文档", "description": "玩法、系统、数值", "deps": []}]},
+                {"name": "核心机制", "tasks": [{"id": "mechanics", "name": "核心玩法", "description": design[:300], "deps": ["gdd"]}]},
+                {"name": "内容开发", "tasks": [{"id": "content", "name": "关卡/UI/资源", "description": "游戏内容实现", "deps": ["mechanics"]}]},
+                {"name": "测试打包", "tasks": [{"id": "build", "name": "测试与构建", "description": "可玩版本", "deps": ["content"]}]},
+            ],
+            "analysis": [
+                {"name": "数据采集", "tasks": [{"id": "collect", "name": "数据收集", "description": "获取原始数据", "deps": []}]},
+                {"name": "分析", "tasks": [{"id": "analyze", "name": "数据分析", "description": design[:300], "deps": ["collect"]}]},
+                {"name": "报告", "tasks": [{"id": "report", "name": "报告撰写", "description": "结论与建议", "deps": ["analyze"]}]},
+            ],
+            "audit": [
+                {"name": "范围确定", "tasks": [{"id": "scope", "name": "审计范围", "description": "确定审计边界", "deps": []}]},
+                {"name": "执行审计", "tasks": [{"id": "audit", "name": "逐项审查", "description": design[:300], "deps": ["scope"]}]},
+                {"name": "报告", "tasks": [{"id": "findings", "name": "发现与建议", "description": "问题清单与修复建议", "deps": ["audit"]}]},
+            ],
+        }
+        return pipelines.get(project_type, pipelines["software"])
 
     def _load_checkpoint(self) -> dict:
         """加载 checkpoint"""
