@@ -43,6 +43,8 @@ def main():
     from .model_pool import ModelPool
     
     model_pool = ModelPool()
+    _best = model_pool.best()
+    _model_id = f"{_best['models'][0]}"
     company = pick_company()
     set_trace_id(f"dong_{int(time.time())}")
     
@@ -96,9 +98,10 @@ def main():
     readline.set_history_length(500)
     
     os.system('clear')
-    print_banner(company, model_pool.best()['name'], state['mode'], model_pool)
+    model_pool.best()  # 刷新缓存
+    print_banner(company, _model_id, state['mode'], model_pool)
     sep()
-    status_line(company, model_pool.best()['name'], 0, state['phase'], "—", state, model_pool)
+    status_line(company, _model_id, 0, state['phase'], "—", state, model_pool)
     sep()
     
     # ═══════════════════════════════════════
@@ -109,7 +112,7 @@ def main():
             inp = input(f"  {C.P}❯{C.R} {C.B}").strip()
             print(C.R, end='')
         except (EOFError, KeyboardInterrupt):
-            print(f"\n  {C.G}再见。{C.R}")
+            print()
             break
         if not inp: continue
         
@@ -130,7 +133,8 @@ def main():
                 state = {**state, 'phase':'待命中','projects':[],'scores':[],'dept_history':[],'current_project':'','start_time':time.time()}
                 msgs = [{"role": "system", "content": ceo_system}]
                 os.system('clear')
-                print_banner(company, model_pool.best()['name'], state['mode'], model_pool)
+                _model_id = f"{model_pool.best()['models'][0]}"
+                print_banner(company, _model_id, state['mode'], model_pool)
                 continue
             elif cmd[0] == 'resume':
                 last_sid = ceo_mem.session_resume()
@@ -150,8 +154,25 @@ def main():
             elif cmd[0] == 'dash':
                 box_top("📊 Dong AI 仪表盘")
                 print(f"  公司: Dong AI  |  状态: {state['phase']}  |  模式: {state['mode']}")
-                print(f"  模型: {model_pool.best()['name']}  |  评分: {state['scores'][-1] if state['scores'] else '—'}")
+                print(f"  模型: {model_pool.best()['name']} ({model_pool.best()['models'][0]})")
+                print(f"  可用 Provider: {len(model_pool.available())}")
+                usage = model_pool.get_usage()
+                if usage['total'] > 0:
+                    ctx_max = state.get('_context_max', 64000)
+                    pct = min(100, int(usage['total'] / ctx_max * 100))
+                    print(f"  Token: {usage['total']:,}  |  上下文: {pct}%")
                 print(f"  会话: {len(msgs)} 条  |  项目: {len(state['projects'])}")
+                # 图记忆
+                try:
+                    from dong_ai.datastore import get_repo
+                    gr = get_repo("graph")
+                    nodes = gr.get_project_nodes("current")
+                    deps = gr.get_deps("current")
+                    if nodes or deps:
+                        fn = sum(1 for n in nodes if n["node_type"] == "function")
+                        cl = sum(1 for n in nodes if n["node_type"] == "class")
+                        print(f"  图记忆: {len(nodes)} 符号 ({fn} 函数, {cl} 类)  |  {len(deps)} 依赖")
+                except: pass
                 if state.get('novel_lore_count', 0) > 0:
                     print(f"\n  世界观: {state['novel_lore_count']} 条设定  |  {state.get('novel_chapters', 0)} 章")
                 if state.get('memory_count', 0) > 0:
@@ -229,7 +250,7 @@ def main():
             msgs.append({"role": "assistant", "content": resp})
             ceo_mem.session_save(session_id, 'assistant', resp)
             sep()
-            status_line(company, model_pool.best()['name'], len(msgs), state['phase'],
+            status_line(company, _model_id, len(msgs), state['phase'],
                        f"{state['scores'][-1]:.1f}" if state['scores'] else "—", state, model_pool)
             sep()
             continue
@@ -300,7 +321,7 @@ def main():
         # ── 状态行 ──
         score_disp = f"{state['scores'][-1]:.1f}" if state['scores'] else "—"
         sep()
-        status_line(company, model_pool.best()['name'], len(msgs), state['phase'], score_disp, state, model_pool)
+        status_line(company, _model_id, len(msgs), state['phase'], score_disp, state, model_pool)
         sep()
     
     try: readline.write_history_file(str(hist))
