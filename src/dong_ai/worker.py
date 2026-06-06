@@ -69,7 +69,7 @@ class WorkerPool:
         except Exception:
             pass
 
-    def assign_task(self, task: dict, design: str, context: str) -> dict:
+    def assign_task(self, task: dict, design: str, context: str, difficulty: int = 2) -> dict:
         """CEO 派活流程 + CodeGraph 记忆"""
         import concurrent.futures
         task_id = task.get("id", task.get("name", "unknown"))
@@ -90,7 +90,7 @@ class WorkerPool:
         }
 
         for round_num in range(1, 4):
-            workers = self._generate_workers(task_name, design, context, f"第{round_num}轮")
+            workers = self._generate_workers(task_name, design, context, f"第{round_num}轮", difficulty)
             self._stream("👥 员工", f"{' + '.join(w['name'] for w in workers)}")
 
             worker_results = {}
@@ -116,7 +116,7 @@ class WorkerPool:
                         worker_results[w["id"]] = {"status": "error", "error": str(e), "files": [], "interfaces": [], "lessons": []}
 
             review_passed = True
-            if len(workers) >= 2:
+            if len(workers) >= 2 and difficulty > 1:
                 self._stream("🔄 交叉审查", "")
                 review_passed = self._cross_review(workers, worker_results, task_id, mod_dir)
                 if not review_passed:
@@ -191,12 +191,15 @@ class WorkerPool:
         return {"status": "error", "error": "自愈失败", "files": [], "interfaces": [], "lessons": []}
 
     # ── CEO 用 LLM 动态生成员工 ──
-    def _generate_workers(self, task_name: str, design: str, context: str, round_label: str) -> list:
+    def _generate_workers(self, task_name: str, design: str, context: str, round_label: str, difficulty: int = 2) -> list:
         prompt = (
             f"任务: {task_name}\n"
             f"设计方案: {design[:1000]}\n"
-            f"上下文: {context[:500]}\n\n"
-            f"分析这个任务需要几名员工才能高质量完成（1-3名）。\n"
+            f"上下文: {context[:500]}\n"
+            f"难度等级: {difficulty} (1=简单改动, 2=中等, 3=复杂)\n\n"
+            f"难度1: 最多1人，无需交叉审查，直接执行\n"
+            f"难度2: 2人，轻量交叉审查\n"
+            f"难度3: 2-3人，完整交叉审查\n\n"
             f"请输出 JSON 格式员工清单（只输出 JSON，不要其他内容）：\n\n"
             "[\n"
             "  {\n"

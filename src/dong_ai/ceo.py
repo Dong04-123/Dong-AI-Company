@@ -364,6 +364,7 @@ class CEO:
                 task,
                 design=getattr(self, "_design", ""),
                 context=f"项目: {self.plan.get('project_name', '')}",
+                difficulty=task.get("difficulty", 2),
             )
 
             status = "done" if result.get("status") == "done" else "failed"
@@ -529,25 +530,35 @@ class CEO:
             resp = self.llm.chat([{"role": "user", "content": (
                 f"项目类型：{project_type}\n"
                 f"设计方案：{design[:2000]}\n\n"
-                f"为这个项目设计执行管线（3-6个阶段），每个阶段包含1-3个任务。\n"
-                f"任务间用 deps 表达依赖关系。\n"
-                f"只输出 JSON，不要其他内容：\n"
-                f'[\n'
+                f"评估此项目的难度等级 (1=简单改动, 2=中等, 3=复杂新项目)，"
+                f"然后设计执行管线。\n"
+                f"- 难度1: 1个阶段最多1-2个任务，每任务配1人，无需交叉审查\n"
+                f"- 难度2: 2-3个阶段，每任务配2人，轻量审查\n"
+                f"- 难度3: 3-6个阶段，每任务配2-3人，完整审查\n\n"
+                f"输出严格 JSON，格式：\n"
+                f'{{"difficulty": 1, "phases": [\n'
                 f'  {{"name":"阶段名","tasks":[{{"id":"t1","name":"任务名","description":"描述","deps":[]}}]}}\n'
-                f']'
+                f']}}'
             )}], system="项目管理专家。输出严格JSON。", max_tokens=4096, temperature=0.3)
 
-            json_match = re.search(r'\[.*\]', resp.text, re.DOTALL)
+            json_match = re.search(r'\{.*\}', resp.text, re.DOTALL)
             if json_match:
-                phases = json.loads(json_match.group())
-                if isinstance(phases, list) and len(phases) >= 2:
+                plan = json.loads(json_match.group())
+                phases = plan.get("phases", [])
+                difficulty = plan.get("difficulty", 2)
+                if isinstance(phases, list) and len(phases) >= 1:
+                    # Tag each task with difficulty
+                    for phase in phases:
+                        for task in phase.get("tasks", []):
+                            task["difficulty"] = task.get("difficulty", difficulty)
+                    self._difficulty = difficulty
                     return phases
         except Exception:
             pass
-        # 兜底：简单两阶段
+        self._difficulty = 2
         return [
-            {"name": "规划", "tasks": [{"id": "plan", "name": "方案细化", "description": design[:200], "deps": []}]},
-            {"name": "执行", "tasks": [{"id": "exec", "name": "落地执行", "description": "按设计方案执行", "deps": ["plan"]}]},
+            {"name": "规划", "tasks": [{"id": "plan", "name": "方案细化", "description": design[:200], "deps": [], "difficulty": 2}]},
+            {"name": "执行", "tasks": [{"id": "exec", "name": "落地执行", "description": "按设计方案执行", "deps": ["plan"], "difficulty": 2}]},
         ]
 
     def _load_checkpoint(self) -> dict:
