@@ -105,6 +105,7 @@ class Datastore:
                 line_number INTEGER DEFAULT 0,
                 signature TEXT,
                 detail TEXT,
+                embedding BLOB,
                 source TEXT DEFAULT 'auto',
                 created_at TEXT
             );
@@ -280,9 +281,12 @@ class GraphRepository:
     def add_node(self, project_id: str, node_type: str, node_name: str,
                  file_path: str = "", line_number: int = 0,
                  signature: str = "", detail: str = ""):
+        text_idx = f"{node_name} {signature} {detail} {file_path}"
+        emb = self._embed(text_idx)
         self.c.execute(
-            "INSERT INTO codegraph (project_id, node_type, node_name, file_path, line_number, signature, detail, created_at) VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO codegraph (project_id, node_type, node_name, file_path, line_number, signature, detail, embedding, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
             (project_id, node_type, node_name, file_path, line_number, signature, detail,
+             emb,
              datetime.now(timezone.utc).isoformat()))
         self.c.commit()
 
@@ -292,6 +296,68 @@ class GraphRepository:
             (project_id, from_node, to_node, dep_type,
              datetime.now(timezone.utc).isoformat()))
         self.c.commit()
+
+    # ── 嵌入向量（语义搜索）──
+
+    def _embed(self, text: str) -> bytes:
+        """调用本地嵌入模型，返回 pickle 格式的向量"""
+        if not text.strip():
+            return b""
+        try:
+            import urllib.request, json, pickle, struct
+            payload = json.dumps({"model": "nomic-embed-text", "prompt": text[:512]}).encode()
+            req = urllib.request.Request(
+                "http://localhost:11434/api/embeddings",
+                data=payload, headers={"Content-Type": "application/json"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+                vec = data.get("embedding", [])
+                return struct.pack(f"{len(vec)}f", *vec) if vec else b""
+        except Exception:
+            return b""
+
+    def _cosine_sim(self, a: bytes, b: bytes) -> float:
+        import struct
+        if not a or not b or len(a) != len(b):
+            return 0.0
+        va = list(struct.unpack(f"{len(a)//4}f", a))
+        vb = list(struct.unpack(f"{len(b)//4}f", b))
+        dot = sum(x * y for x, y in zip(va, vb))
+        na = sum(x * x for x in va) ** 0.5
+        nb = sum(x * x for x in vb) ** 0.5
+        return dot / (na * nb) if na > 0 and nb > 0 else 0.0
+
+    # ── 图遍历 ──
+
+    def traverse(self, project_id: str, node_name: str, depth: int = 1) -> list:
+        """从节点出发沿依赖链遍历，返回所有相关节点"""
+        related = set()
+        related.add(node_name)
+        current = {node_name}
+        for _ in range(depth):
+            if not current:
+                break
+            placeholders = ",".join("?" for _ in current)
+            cur = self.c.execute(
+                f"SELECT from_node, to_node FROM code_deps WHERE project_id=? AND (from_node IN ({placeholders}) OR to_node IN ({placeholders}))",
+                (project_id, *current, *current))
+            found = set()
+            for r in cur.fetchall():
+                found.add(r[0])
+                found.add(r[1])
+            current = found - related
+            related.update(current)
+        related.discard(node_name)
+        if not related:
+            return []
+        placeholders = ",".join("?" for _ in related)
+        cur = self.c.execute(
+            f"SELECT node_name, node_type, file_path, signature FROM codegraph WHERE project_id=? AND node_name IN ({placeholders}) LIMIT 20",
+            (project_id, *related))
+        return [dict(zip(["name", "type", "file", "signature"], r)) for r in cur.fetchall()]
+
+    # ── 查询 ──
 
     def get_project_nodes(self, project_id: str, node_type: str = "") -> list:
         if node_type:
@@ -303,6 +369,37 @@ class GraphRepository:
                 "SELECT * FROM codegraph WHERE project_id=? ORDER BY file_path, line_number",
                 (project_id,))
         return [dict(r) for r in cur.fetchall()]
+
+    def query(self, q: str, project_id: str = "") -> list:
+        """关键词 + 语义混合搜索"""
+        kw = f"%{q}%"
+        results = {}
+        # 1. 关键词搜索（精确匹配）
+        if project_id:
+            cur = self.c.execute(
+                "SELECT id, node_name, node_type, file_path, signature, embedding FROM codegraph WHERE project_id=? AND (node_name LIKE ? OR signature LIKE ? OR detail LIKE ?) LIMIT 15",
+                (project_id, kw, kw, kw))
+        else:
+            cur = self.c.execute(
+                "SELECT id, node_name, node_type, file_path, signature, embedding FROM codegraph WHERE node_name LIKE ? OR signature LIKE ? OR detail LIKE ? LIMIT 15",
+                (kw, kw, kw))
+        for r in cur.fetchall():
+            results[r[0]] = {"name": r[1], "type": r[2], "file": r[3], "signature": r[4], "score": 1.0, "emb": r[5]}
+
+        # 2. 语义搜索（向量相似度，仅当嵌入模型可用）
+        q_emb = self._embed(q)
+        if q_emb:
+            cur2 = self.c.execute(
+                "SELECT id, node_name, node_type, file_path, signature, embedding FROM codegraph WHERE embedding IS NOT NULL AND embedding != '' ORDER BY id DESC LIMIT 50",
+                () if project_id else ())
+            for r in cur2.fetchall():
+                if r[0] in results:
+                    continue
+                sim = self._cosine_sim(q_emb, r[5] or b"")
+                if sim > 0.5:
+                    results[r[0]] = {"name": r[1], "type": r[2], "file": r[3], "signature": r[4], "score": sim}
+
+        return [v for v in sorted(results.values(), key=lambda x: -x["score"])[:10]]
 
     def get_deps(self, project_id: str, node_name: str = "") -> list:
         if node_name:
@@ -341,6 +438,13 @@ class GraphRepository:
                         parts.append(f"\n🔍 与「{kw}」相关的符号:")
                         for m in matches[:5]:
                             parts.append(f"  · {m['name']} ({m['type']}) in {m['file']}: {m.get('signature','')[:80]}")
+                        # 图遍历：自动查找相关依赖
+                        for m in matches[:3]:
+                            related = self.traverse(project_id, m["name"], depth=1)
+                            if related:
+                                parts.append(f"  └─ 影响面 ({len(related)} 个相关符号):")
+                                for r in related[:5]:
+                                    parts.append(f"      {r['name']} ({r['type']})")
         deps = self.get_deps(project_id)
         if deps:
             parts.append(f"\n🔗 依赖关系: {len(deps)} 条")
