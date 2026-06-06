@@ -8,6 +8,7 @@ Dong AI Company — 终端入口 (v2)
 
 import sys, os, re, time, json, random, shutil
 from pathlib import Path
+from datetime import datetime
 
 # ── 新架构模块 ──
 from .display import box_top, box_bottom, sep, status_line, print_assistant, print_banner, C
@@ -220,7 +221,8 @@ def main():
         
         # ── 用户消息 ──
         log.info("user_message", content=inp[:100])
-        print(f"\n  {C.W}{C.B}❱{C.R} {inp}")
+        ts = datetime.now().strftime("%H:%M:%S")
+        print(f"  {C.D}[{ts}]{C.R} {C.B}❱{C.R} {inp}")
         msgs.append({"role": "user", "content": inp})
         ceo_mem.session_save(session_id, 'user', inp)
         
@@ -258,7 +260,8 @@ def main():
         # ── 普通模式：流式调用 ──
         effective_system = ceo_system + (lore_context if is_writing else "")
         resp = ""
-        print(f"  {C.D}┊{C.R}", end='')
+        ts = datetime.now().strftime("%H:%M:%S")
+        print(f"  {C.D}[{ts}]{C.R} ", end='', flush=True)
         try:
             for token in model_pool.call_stream(msgs[1:], system=effective_system, max_tokens=8192, temperature=0.7):
                 resp += token
@@ -271,15 +274,17 @@ def main():
         # ── 解析工具调用 ──
         tool_results = tool_ex.execute_all(resp)
         for name, params, result in tool_results:
-            print(f"  {C.D}┊{C.R}  {C.P}🔧 {name}({params.get('query','') or params.get('path','') or params.get('action','')}){C.R}")
-            print(f"  {C.D}┊{C.R}  {result[:200]}")
+            ts = datetime.now().strftime("%H:%M:%S")
+            print(f"  {C.D}[{ts}] 🔧 {name}({params.get('query','') or params.get('path','') or params.get('action','')}){C.R}")
+            print(f"  {C.D}     {result[:200]}")
         
         # ── 工具调用后处理（继续对话）──
         if tool_results:
             tool_feedback = "\n".join(f"工具 {n} 返回: {r[:500]}" for n, p, r in tool_results)
             try:
                 resp2 = ""
-                print(f"  {C.D}┊{C.R}", end='')
+                ts = datetime.now().strftime("%H:%M:%S")
+                print(f"  {C.D}[{ts}]{C.R} ", end='', flush=True)
                 for token in model_pool.call_stream(
                     msgs[1:] + [{"role":"assistant","content":resp},
                                {"role":"user","content":f"工具返回结果：\n{tool_feedback}\n\n继续你的工作。"}],
@@ -291,6 +296,7 @@ def main():
             except: pass
         
         box_bottom()
+        sep()
         msgs.append({"role": "assistant", "content": resp})
         ceo_mem.session_save(session_id, 'assistant', resp)
         
@@ -316,7 +322,8 @@ def main():
                     lore.add(cat, nm, desc, state.get('novel_chapters', 0)+1)
                 state['novel_lore_count'] = (state.get('novel_lore_count', 0) + len(lore_entries))
                 state['novel_chapters'] = state.get('novel_chapters', 0) + 1
-                print(f"  {C.D}┊{C.R}  {C.P}📖 已记录 {len(lore_entries)} 条设定{C.R}")
+                ts = datetime.now().strftime("%H:%M:%S")
+                print(f"  {C.D}[{ts}] 📖 已记录 {len(lore_entries)} 条设定{C.R}")
         
         # ── 状态行 ──
         score_disp = f"{state['scores'][-1]:.1f}" if state['scores'] else "—"
