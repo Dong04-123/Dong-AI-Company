@@ -697,26 +697,30 @@ def _cmd_setup() -> None:
     mem.config_set("mode", mode)
     print(f"┊    模式已设为: {mode}")
 
-    # 4. 选择主模型
+    # 4. 选择主模型（列出所有已知 provider，不管有没有 key）
     print("┊")
     print("┊  📋 可用模型:")
-    for i, p in enumerate(available[:10], 1):
-        key_preview = p["api_key"][:8] + "..." if p["api_key"] else "无 key"
-        print(f"┊    [{i}] {p['name']:<18} {p['models'][0]:<35} {key_preview}")
-    if len(available) > 10:
-        print(f"┊    ... 共 {len(available)} 个")
+    all_providers = []
+    for i, (pid, info) in enumerate(PROVIDERS.items(), 1):
+        env_name = info.get("env_key", "")
+        has_key = bool(os.environ.get(env_name)) if env_name else False
+        key_preview = os.environ.get(env_name, "")[:8] + "..." if has_key else "无 key"
+        all_providers.append({"id": pid, "name": info["name"], "models": info["models"],
+                              "env_key": env_name, "has_key": has_key})
+        print(f"┊    [{i}] {info['name']:<18} {info['models'][0]:<35} {key_preview}")
+    print(f"┊    ... 共 {len(all_providers)} 个" if len(all_providers) > 10 else "")
 
     model_choice = input("┊  选择主模型编号 (默认 1): ").strip() or "1"
     sel = None
     if model_choice.isdigit():
         idx = int(model_choice) - 1
-        if 0 <= idx < len(available):
-            sel = available[idx]
+        if 0 <= idx < len(all_providers):
+            sel = all_providers[idx]
             print(f"┊    主模型: {sel['name']} ({sel['models'][0]})")
             mem.config_set("provider", sel["id"])
 
     # 4.5 API Key 录入
-    if sel and not sel.get("api_key"):
+    if sel and not sel.get("has_key"):
         print("┊")
         print(f"┊  📋 {sel['name']} 需要 API Key")
         env_key_name = PROVIDERS.get(sel["id"], {}).get("env_key", "")
