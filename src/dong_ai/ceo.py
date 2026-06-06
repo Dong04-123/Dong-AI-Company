@@ -350,7 +350,7 @@ class CEO:
 
     def _execute_phase(self, phase: dict, phase_idx: int) -> bool:
         """用 WorkerPool 执行一个阶段的所有任务，捕获证据"""
-        from worker import WorkerPool
+        from dong_ai.worker import WorkerPool
 
         wp = WorkerPool(str(self.project_dir))
         all_ok = True
