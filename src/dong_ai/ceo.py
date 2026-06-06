@@ -638,7 +638,7 @@ class CEO:
         lines.append("\n---\n")
         lines.append("## ⚙️ 技术信息\n")
         lines.append(f"- 引擎: Dong AI Company v{getattr(__import__('dong_ai'), '__version__', '0.1.0')}")
-        from model_pool import ModelPool
+        from dong_ai.model_pool import ModelPool
         pool = ModelPool()
         try:
             best = pool.best()
