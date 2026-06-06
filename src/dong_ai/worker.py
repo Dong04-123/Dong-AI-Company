@@ -258,9 +258,13 @@ class WorkerPool:
         rules_str = "\n".join(f"- {r}" for r in rules)
         has_search = "web_search" in tools
         search_note = (
-            "\n\n🔍 你可以使用 web_search 工具搜索网络资料。\n"
-            "遇到不熟悉的技术、不确定的最佳实践、需要查文档时，先用 web_search 搜索再动手，"
-            "不要靠猜。搜索后把查到的信息用在你输出的方案里。"
+            "\n\n🔍 你可以使用以下工具:\n"
+            "- read_file(path): 读取项目文件内容\n"
+            "- write_file(path, content): 写入/修改文件\n"
+            "- list_files(path): 浏览目录结构\n"
+            "- run(command): 执行 shell 命令\n"
+            "- web_search(query): 搜索网络资料\n"
+            "优先使用 read_file 读取项目中的现有代码，而不是从头编写。"
         ) if has_search else ""
 
         system = (
@@ -275,8 +279,9 @@ class WorkerPool:
         user_msg = (
             f"项目任务: {task_name}\n"
             f"设计方案: {design}\n"
+            f"项目目录: {self.project_dir}\n"
             f"项目上下文:\n{context[:budget//4]}\n\n"
-            f"请开始你的工作。"
+            f"请在你的项目目录中工作。使用 read_file 读取现有文件，write_file 写入修改。"
         )
 
         if "opencode" in tools or "代码" in mission or "写" in mission or "实现" in mission:

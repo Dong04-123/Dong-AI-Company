@@ -318,7 +318,7 @@ def _cmd_run(args) -> None:
     request = " ".join(args) if args else ""
     if not request: print("用法: dong run \"需求\""); return
     from dong_ai.ceo import CEO
-    ceo = CEO()
+    ceo = CEO(project_dir=str(Path.cwd()))
     ceo.run(request)
     print(f"  报告: {ceo.report_path}")
 

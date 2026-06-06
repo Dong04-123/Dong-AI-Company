@@ -44,6 +44,30 @@ def get_registered_tools(force_reload: bool = False) -> list:
         "exec": "builtin",
         "skill": "__builtin__",
     })
+    tools.append({
+        "name": "read_file",
+        "description": "Read the contents of a file. Use this to examine source code, configs, or any file in the project.",
+        "exec": "builtin",
+        "skill": "__builtin__",
+    })
+    tools.append({
+        "name": "write_file",
+        "description": "Write content to a file. Creates directories if needed. Use to create new files or overwrite existing ones.",
+        "exec": "builtin",
+        "skill": "__builtin__",
+    })
+    tools.append({
+        "name": "list_files",
+        "description": "List files and directories at a path. Use to explore the project structure.",
+        "exec": "builtin",
+        "skill": "__builtin__",
+    })
+    tools.append({
+        "name": "run",
+        "description": "Execute a shell command and get its output. Use to run tests, builds, or inspect the filesystem.",
+        "exec": "builtin",
+        "skill": "__builtin__",
+    })
 
     for base_dir in [SKILL_DIR, HERMES_SKILL_DIR]:
         if not base_dir.exists():
@@ -86,6 +110,66 @@ def _call_builtin_tool(tool_name: str, **kwargs) -> str:
             return search_formatted(query) if query else "请输入搜索词"
         except Exception as e:
             return f"<搜索失败: {e}>"
+    if tool_name == "read_file":
+        path = kwargs.get("path") or kwargs.get("file", "")
+        if not path:
+            return "<read_file: 请指定 path>"
+        try:
+            from pathlib import Path
+            p = Path(path).expanduser().resolve()
+            if not p.exists():
+                return f"<文件不存在: {p}>"
+            content = p.read_text(encoding="utf-8", errors="replace")
+            lines = content.split("\n")
+            return f"📄 {p} ({len(lines)} 行, {len(content)} 字符)\n\n{content[:8000]}"
+        except Exception as e:
+            return f"<读取失败: {e}>"
+    if tool_name == "write_file":
+        path = kwargs.get("path") or kwargs.get("file", "")
+        content = kwargs.get("content", "")
+        if not path:
+            return "<write_file: 请指定 path 和 content>"
+        try:
+            from pathlib import Path
+            p = Path(path).expanduser().resolve()
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content, encoding="utf-8")
+            return f"✅ 已写入 {p} ({len(content)} 字符)"
+        except Exception as e:
+            return f"<写入失败: {e}>"
+    if tool_name == "list_files":
+        path = kwargs.get("path") or kwargs.get("dir", ".")
+        try:
+            from pathlib import Path
+            from datetime import datetime
+            p = Path(path).expanduser().resolve()
+            if not p.exists():
+                return f"<路径不存在: {p}>"
+            items = []
+            for child in sorted(p.iterdir()):
+                mtime = datetime.fromtimestamp(child.stat().st_mtime).strftime("%m-%d %H:%M")
+                size = child.stat().st_size
+                icon = "📁" if child.is_dir() else "📄"
+                items.append(f"  {icon} {child.name:<40s} {size:>8,}  {mtime}")
+            header = f"📂 {p} ({len(items)} items)"
+            return header + "\n" + "\n".join(items[:100])
+        except Exception as e:
+            return f"<列表失败: {e}>"
+    if tool_name == "run":
+        cmd = kwargs.get("command") or kwargs.get("cmd", "")
+        if not cmd:
+            return "<run: 请指定 command>"
+        try:
+            import subprocess
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+            out = (result.stdout or "")[:6000]
+            err = (result.stderr or "")[:2000]
+            text = out + ("\n--- stderr ---\n" + err if err else "")
+            return f"$ {cmd}\n{text}"
+        except subprocess.TimeoutExpired:
+            return f"<命令超时: {cmd}>"
+        except Exception as e:
+            return f"<命令失败: {e}>"
     return f"<未知内置工具: {tool_name}>"
 
 
