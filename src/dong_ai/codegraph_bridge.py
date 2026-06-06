@@ -4,6 +4,8 @@ CodeGraph 桥接 v2 — 用 tree-sitter-analyzer CLI 查询代码结构
 CEO 通过这个模块做符号级代码理解。
 使用 CLI 接口避免 async API 的复杂性。
 """
+from __future__ import annotations
+
 import json
 import subprocess
 import shlex
@@ -11,13 +13,13 @@ from pathlib import Path
 
 
 class CodeGraphBridge:
-    def __init__(self, workspace: str = "."):
+    def __init__(self, workspace: str = ".") -> None:
         self.workspace = str(Path(workspace).resolve())
         # 自动查找可用 Python
         import sys as _sys
         self._venv_python = _sys.executable
 
-    def _run_tsa(self, *args) -> dict:
+    def _run_tsa(self, *args: str) -> dict:
         """运行 tree-sitter-analyzer CLI"""
         cmd = [self._venv_python, "-m", "tree_sitter_analyzer"] + list(args)
         try:

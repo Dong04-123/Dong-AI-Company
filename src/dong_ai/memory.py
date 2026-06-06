@@ -10,10 +10,13 @@ skill 目录：
 
 skill 文件格式：标准 markdown，含 frontmatter
 """
+from __future__ import annotations
+
 import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 SKILL_DIR = Path.home() / ".dongcode" / "skills"
@@ -203,11 +206,11 @@ def _is_excluded(path: str) -> bool:
     return False
 
 
-def ensure_skill_dir():
+def ensure_skill_dir() -> None:
     SKILL_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def save_project_skills(project_name: str, lessons: list, summary: str, ceo_llm_func=None):
+def save_project_skills(project_name: str, lessons: list, summary: str, ceo_llm_func: Any = None) -> None:
     """
     项目结束时调用。CEO 自己总结教训，写入 skill 文件。
     """

@@ -9,8 +9,24 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
+### 1. 版权声明保留
+
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
+### 2. 署名要求
+
+任何基于本软件的二次开发、分发或商业服务，必须在产品关于页面、
+README 或显著位置注明：
+
+> "Powered by Dong AI Company (https://github.com/Dong04-123/Dong-AI-Company)"
+
+### 3. 开放性
+
+本软件可自由用于个人学习、研究、商业项目。
+无需额外授权，无需付费。
+
+---
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

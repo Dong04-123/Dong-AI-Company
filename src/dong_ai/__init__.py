@@ -10,7 +10,9 @@
   dong detect        # 检测可用模型
 """
 
-__version__ = "0.1.0"
+from __future__ import annotations
+
+__version__ = "0.1.1"
 
 from .ceo import CEO
 from .llm import LLMConfig, LLMResponse, OpenAICompatibleClient, create_client

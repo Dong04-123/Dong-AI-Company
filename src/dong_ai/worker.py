@@ -4,12 +4,15 @@
 CEO 用 LLM 分析任务 → 动态生成需要的员工 → 他们自己干活 → 互相审查。
 
 HTTP 调用统一走 ModelPool（自动 failover）。"""
+from __future__ import annotations
+
 import json, os, re, subprocess
 from pathlib import Path
+from typing import Any
 
 
 class WorkerPool:
-    def __init__(self, project_dir: str, model_endpoint: str = None):
+    def __init__(self, project_dir: str, model_endpoint: str = None) -> None:
         self.project_dir = Path(project_dir)
         self.project_dir.mkdir(parents=True, exist_ok=True)
         self.model_endpoint = model_endpoint or ""
@@ -18,7 +21,7 @@ class WorkerPool:
         self.work_dir = self.project_dir / "work"
         self.work_dir.mkdir(parents=True, exist_ok=True)
 
-    def _llm_call(self, messages, system="", **kwargs):
+    def _llm_call(self, messages: list, system: str = "", **kwargs: Any) -> str:
         """统一 LLM 调用——走 ModelPool 自动 failover，失败时返回错误字符串"""
         from .model_pool import ModelPool
         max_tokens = kwargs.pop("max_tokens", 4096)
@@ -49,7 +52,7 @@ class WorkerPool:
         except Exception:
             return ""
 
-    def _index_task_output(self, task_id: str, files: list, interfaces: list, lessons: list):
+    def _index_task_output(self, task_id: str, files: list, interfaces: list, lessons: list) -> None:
         """任务完成后，将产出写入图记忆"""
         try:
             from .datastore import get_repo
@@ -154,7 +157,7 @@ class WorkerPool:
             break
         return result
 
-    def _stream(self, topic: str, msg: str):
+    def _stream(self, topic: str, msg: str) -> None:
         print(f"  [{topic}] {msg}")
 
     def _run_worker_self_healing(self, worker: dict, task_id: str, task_name: str, w_dir: Path, design: str, context: str) -> dict:
@@ -286,7 +289,7 @@ class WorkerPool:
             return self._worker_general_impl(name, task_id, w_dir, system, user_msg)
 
     # ── 代码类员工 ──
-    def _worker_code_impl(self, name, task_id, w_dir, system, user_msg) -> dict:
+    def _worker_code_impl(self, name: str, task_id: str, w_dir: Path, system: str, user_msg: str) -> dict:
         target_file = w_dir / f"{task_id}.py"
         code = self._call_llm_with_tools(
             [{"role": "user", "content": user_msg}],
@@ -303,7 +306,7 @@ class WorkerPool:
         return {"status": "ok", "files": [str(target_file)], "interfaces": interfaces, "lessons": [], "review_notes": ""}
 
     # ── 测试类员工 ──
-    def _worker_test_impl(self, name, task_id, w_dir, system, user_msg) -> dict:
+    def _worker_test_impl(self, name: str, task_id: str, w_dir: Path, system: str, user_msg: str) -> dict:
         test_file = w_dir / f"test_{task_id}.py"
         code = self._call_llm_with_tools(
             [{"role": "user", "content": user_msg}],
@@ -321,7 +324,7 @@ class WorkerPool:
                 "review_notes": review_notes}
 
     # ── 审查/集成类员工 ──
-    def _worker_review_impl(self, name, task_id, w_dir, system, user_msg) -> dict:
+    def _worker_review_impl(self, name: str, task_id: str, w_dir: Path, system: str, user_msg: str) -> dict:
         review = self._call_llm_with_tools(
             [{"role": "user", "content": user_msg}],
             system=system, max_tokens=4096, temperature=0.3,
@@ -334,7 +337,7 @@ class WorkerPool:
                 "review_notes": review[:500]}
 
     # ── 通用员工 ──
-    def _worker_general_impl(self, name, task_id, w_dir, system, user_msg) -> dict:
+    def _worker_general_impl(self, name: str, task_id: str, w_dir: Path, system: str, user_msg: str) -> dict:
         output = self._llm_call(
             [{"role": "user", "content": user_msg}],
             system=system, max_tokens=4096, temperature=0.3,
@@ -378,7 +381,7 @@ class WorkerPool:
         return all_passed
 
     # ── 带工具调用的模型请求（ReAct 循环）──
-    def _call_llm_with_tools(self, messages, system="", max_tokens=4096, temperature=0.3, max_tool_turns=5) -> str:
+    def _call_llm_with_tools(self, messages: list, system: str = "", max_tokens: int = 4096, temperature: float = 0.3, max_tool_turns: int = 5) -> str:
         """调模型，检测工具调用，执行工具，继续，最多 5 轮"""
         from .memory import get_registered_tools, call_plugin_tool
         from .model_pool import ModelPool
@@ -496,7 +499,7 @@ class WorkerPool:
         return full_content
 
     # ── 真实跑 pytest ──
-    def _run_real_tests(self, mod_dir):
+    def _run_real_tests(self, mod_dir: Path) -> tuple[int, int, list]:
         test_files = list(mod_dir.rglob("test_*.py"))
         if not test_files:
             return 0, 0, ["无测试文件"]

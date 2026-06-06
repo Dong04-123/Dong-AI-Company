@@ -3,6 +3,8 @@
 通过 stdio JSON-RPC 调用 MCP 服务器工具。
 集成到 WorkerPool 的 ReAct 工具循环中。"""
 
+from __future__ import annotations
+
 import json, subprocess, os, sys, time
 from pathlib import Path
 from typing import Optional
@@ -11,7 +13,7 @@ from typing import Optional
 class MCPClient:
     """MCP 协议客户端 — stdio 传输"""
 
-    def __init__(self, server_name: str, command: str, args: list = None):
+    def __init__(self, server_name: str, command: str, args: list = None) -> None:
         self.server_name = server_name
         self.command = command
         self.args = args or []
@@ -43,7 +45,7 @@ class MCPClient:
             self._process = None
             return False
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """关闭 MCP 服务器"""
         if self._process:
             try:
@@ -104,11 +106,11 @@ class MCPClient:
             print(f"  [MCP] 请求失败 {method}: {e}")
         return None
 
-    def __enter__(self):
+    def __enter__(self) -> MCPClient:
         self.connect()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         self.disconnect()
 
 

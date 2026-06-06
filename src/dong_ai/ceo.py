@@ -19,16 +19,34 @@ log = get_logger("ceo")
 
 
 class CEO:
-    """CEO — 项目全流程协调器"""
+    """CEO — 项目全流程协调器
 
-    def __init__(self, project_dir: str = None, design_engine=None, llm_client=None):
+    Dong AI Company 的核心入口。管理完整项目生命周期：
+      1. 项目类型识别 (software/novel/game/analysis/audit)
+      2. 技能加载 (memory + ExperienceEngine 历史经验)
+      3. 设计阶段 (DesignEngine: 需求提取 + 架构设计)
+      4. 动态管线生成 (LLM 生成 3-6 个执行阶段)
+      5. 阶段执行 (WorkerPool: 多工人并行 + 自愈 + 交叉审查)
+      6. 董事会评分 (BoardReview: 阶段门 ≥ 6.0)
+      7. 需求覆盖检查 (未覆盖需求扣分)
+      8. 经验存档 (ExperienceEngine.debrief)
+      9. 最终报告生成
+
+    用法:
+        ceo = CEO(llm_client=my_llm)
+        ceo.run("Build a CLI tool for CSV processing")
+        print(ceo.report_path.read_text())
+    """
+
+    def __init__(self, project_dir: str = None, design_engine=None,
+                 llm_client=None, experience_engine=None,
+                 metacognition_engine=None):
         self.project_dir = Path(project_dir or Path.home() / ".dong" / "projects" / "current")
         self.project_dir.mkdir(parents=True, exist_ok=True)
 
         if llm_client is not None:
             self.llm = llm_client
         else:
-            # 通过 ModelPool 自动发现可用模型
             from .model_pool import ModelPool
             from .llm import LLMConfig
             pool = ModelPool()
@@ -44,6 +62,9 @@ class CEO:
             self.llm = create_client(cfg)
         self.ds = get_repo("project")
         self.design_engine = design_engine or DesignEngine(self.llm, self.ds)
+        self.experience_engine = experience_engine
+        self.metacognition_engine = metacognition_engine
+        self._col_mem = None
 
         self.plan = {}
         self.plan_path = self.project_dir / "plan.json"
@@ -71,10 +92,9 @@ class CEO:
             self._mode_config = {"ceo_context": 32768, "ceo_max_tokens": 8192}
 
     def run(self, user_request: str, resume: bool = False):
-        """全流程入口"""
+        """全流程入口 — 自动识别项目类型，路由到对应管线"""
         log.info("ceo_run", request=user_request[:50], resume=resume)
 
-        # 检查 checkpoint
         if resume:
             ckpt = self._load_checkpoint()
             if ckpt:
@@ -82,6 +102,7 @@ class CEO:
                 self.plan = ckpt.get("plan", {})
                 phases = ckpt.get("phases", [])
                 start_idx = ckpt["phase_idx"]
+                project_type = ckpt.get("project_type", "software")
             else:
                 print("  ⚠️ 没有 checkpoint，从头开始")
                 resume = False
@@ -91,7 +112,30 @@ class CEO:
             print(f"  Dong AI 启动 | {user_request[:40]}")
             print("█" * 60)
 
-            # 加载相关技能到上下文
+            # 识别项目类型
+            project_type = self._detect_project_type(user_request)
+            self._project_type = project_type
+            type_labels = {
+                "software": "💻 软件开发",
+                "novel": "📖 小说创作",
+                "game": "🎮 游戏开发",
+                "analysis": "📊 分析报告",
+                "audit": "🔍 审计审查",
+            }
+            print(f"  📋 识别项目类型: {type_labels.get(project_type, project_type)}")
+
+            # 初始化 ColumnMemory
+            ctx_limit = self._mode_config.get("ceo_context", 64000)
+            from .column_memory import ColumnMemory
+            self._col_mem = ColumnMemory(
+                project_id=project_type,
+                context_limit=ctx_limit,
+            )
+            self._col_mem.register("C0",
+                f"项目: {user_request[:100]}\n类型: {project_type}\n阶段: 设计")
+            self._col_mem.load("C0")
+
+            # 加载相关技能
             skill_context = ""
             try:
                 from .memory import load_relevant_skills, format_skills_for_prompt
@@ -102,11 +146,24 @@ class CEO:
             except Exception:
                 pass
 
-            # 设计阶段（注入技能上下文）
-            print("\n  📋 阶段 1: 设计方案")
+            # 加载历史经验
+            experience_context = ""
+            if self.experience_engine:
+                try:
+                    experience_context = self.experience_engine.recall(
+                        user_request, project_type)
+                    if experience_context:
+                        print(f"  📖 加载 {experience_context.count('###')} 条历史经验")
+                except Exception:
+                    pass
+
+            # 设计阶段
+            print("\n  📋 设计阶段")
             enriched_request = user_request
             if skill_context:
                 enriched_request = f"{user_request}\n\n{skill_context}"
+            if experience_context:
+                enriched_request = f"{enriched_request}\n\n{experience_context}"
             design_result = self.design_engine.design(enriched_request)
             print(f"  ✅ 设计完成，评分: {design_result['score']:.1f}")
             self._requirements = design_result.get("requirements", [])
@@ -119,13 +176,10 @@ class CEO:
             self.ds.add_decision("design_final", design_result["design"][:500])
             self._design = design_result["design"]
 
-            # 规划阶段
-            print("\n  📋 阶段 2: 拆模块")
-            plan = self._make_plan(design_result["design"])
-            self.plan = plan
-            (self.plan_path).write_text(json.dumps(plan, ensure_ascii=False, indent=2))
-
-            phases = self._split_phases(plan)
+            # 根据项目类型生成管线阶段
+            phases = self._build_pipeline(project_type, design_result["design"])
+            self.plan = {"project_name": design_result.get("project_name", "未知"), "phases": phases}
+            (self.plan_path).write_text(json.dumps(self.plan, ensure_ascii=False, indent=2))
             start_idx = 0
 
         # 执行阶段
@@ -133,6 +187,19 @@ class CEO:
             phase = phases[p_idx]
             phase_name = phase.get("name", f"阶段{p_idx+1}")
             print(f"\n  📋 执行 {p_idx+1}/{len(phases)}: {phase_name}")
+
+            # ColumnMemory 预算检查
+            if self._col_mem:
+                ok, msg = self._col_mem.check_budget()
+                if not ok:
+                    print(f"  {msg}")
+                    break
+                if "/" in msg and "%" in msg:
+                    print(f"  {msg}")
+                # 注册当前阶段到 C4 历史列
+                self._col_mem.register(f"C4_phase_{p_idx}",
+                    f"阶段{p_idx+1}: {phase_name}", token_count=50)
+                self._col_mem.load(f"C4_phase_{p_idx}")
 
             # 跑 WorkerPool
             success = self._execute_phase(phase, p_idx)
@@ -157,9 +224,29 @@ class CEO:
 
             # 阶段门：评分 < 6.0 不放行
             if score < 6.0:
-                print(f"  🚫 {phase_name} 评分低于阈值(6.0)，项目终止")
+                print(f"  🚫 {phase_name} 评分低于阈值(6.0)")
                 self.ds.add_decision(f"phase_{p_idx}_gate", f"BLOCKED: 评分{score}", score=score)
-                break
+
+                # 自驱学习：搞不定了，去学
+                if hasattr(self, '_learn_counter'):
+                    self._learn_counter += 1
+                else:
+                    self._learn_counter = 1
+
+                if self._learn_counter <= 3:
+                    print(f"  📚 尝试学习第 {self._learn_counter} 次...")
+                    lesson = self._learn_from_failure(
+                        phase_name, score, user_request, self._design)
+                    if lesson:
+                        print(f"  📖 {lesson}")
+                        # 重试当前阶段
+                        continue
+                    else:
+                        print(f"  ⚠️ 学习未能产生有效改进")
+                        break
+                else:
+                    print(f"  🚫 已尝试学习 {self._learn_counter} 次，项目终止")
+                    break
 
             # checkpoint
             self._save_checkpoint(p_idx, phases, self.plan)
@@ -176,6 +263,40 @@ class CEO:
         report = self._generate_report()
         self.report_path.write_text(report, encoding="utf-8")
         print(f"\n  📋 项目完成 | 报告: {self.report_path}")
+
+        # 复盘 → 经验固化
+        if self.experience_engine:
+            try:
+                scores = []
+                for p in self.plan.get("phases", []):
+                    pname = p.get("name", "")
+                    decs = self.ds.get_decisions(f"phase_{pname}_board")
+                    if decs:
+                        scores.append(decs[-1].get("score", 7.0))
+                path = self.experience_engine.debrief(
+                    project_type, user_request, self._design,
+                    self.plan.get("phases", []), scores or [7.0],
+                    report, self._requirements,
+                )
+                print(f"  📖 经验已存档 | {Path(path).name}")
+
+                # 双环复盘
+                if self.metacognition_engine:
+                    try:
+                        assessment = self.metacognition_engine.meta_debrief(
+                            project_type, path,
+                            score=scores[-1] if scores else None,
+                        )
+                        if assessment and "quality" in assessment:
+                            print(f"  🔄 复盘质量评估完成")
+                        # 尝试进化学习策略
+                        evolution = self.metacognition_engine.evolve_strategy()
+                        if evolution:
+                            print(f"  {evolution}")
+                    except Exception as e:
+                        print(f"  ⚠️ 元复盘失败: {e}")
+            except Exception as e:
+                print(f"  ⚠️ 复盘失败: {e}")
 
     # ── 设计 → 计划 ──
 
@@ -275,6 +396,70 @@ class CEO:
 
         return all_ok
 
+    # ── 自驱学习 ──
+
+    def _learn_from_failure(self, phase_name: str, score: float,
+                             user_request: str, design: str) -> str:
+        """搞不定的时候，去学。搜索 + 读论文 + 提炼可操作改进"""
+        from .model_pool import ModelPool
+        pool = ModelPool()
+        knowledge = ""
+        learn_attempts = 0
+
+        # 1. 搜问题所在
+        search_queries = [
+            f"{phase_name} {user_request[:40]} 最佳实践",
+            f"how to improve {phase_name} quality",
+            f"{phase_name} 常见错误 解决方案",
+        ]
+
+        for query in search_queries[:2]:
+            try:
+                from .web_search import search_formatted
+                results = search_formatted(query, 3)
+                if results and "搜索失败" not in results:
+                    knowledge += f"\n--- 搜索结果: {query} ---\n{results[:1000]}\n"
+                    learn_attempts += 1
+            except Exception:
+                pass
+
+        # 2. 读详细内容
+        urls = re.findall(r'https?://[^\s\)]+', knowledge)
+        for url in urls[:2]:
+            try:
+                from .mcp_servers.web_tools import fetch_url
+                result = fetch_url(url, max_length=3000)
+                if result.get("content"):
+                    knowledge += f"\n--- 详细阅读: {url} ---\n{result['content'][:1500]}\n"
+                    learn_attempts += 1
+            except Exception:
+                pass
+
+        # 3. 用 LLM 提炼改进方案
+        if learn_attempts > 0:
+            try:
+                prompt = (
+                    f"项目: {user_request[:100]}\n"
+                    f"当前阶段: {phase_name}\n"
+                    f"评分: {score}/10 (低于6.0)\n"
+                    f"设计方案: {design[:300]}\n\n"
+                    f"搜索到的资料:\n{knowledge[:2000]}\n\n"
+                    f"请提炼 3 条可操作的改进方案，每条一句话。"
+                )
+                lesson = ""
+                for token in pool.call_stream(
+                    [{"role": "user", "content": prompt}],
+                    system="你是一个问题解决专家。从搜索结果中提炼可操作的建议。",
+                    max_tokens=1024, temperature=0.3,
+                ):
+                    lesson += token
+                return lesson[:500] if lesson else ""
+            except Exception:
+                pass
+
+        return ""
+
+
     # ── 董事会评分 ──
 
     def _board_review(self, phase_name: str, tasks: list) -> float:
@@ -311,10 +496,59 @@ class CEO:
             "phase_idx": phase_idx,
             "phases": phases,
             "plan": plan,
+            "project_type": getattr(self, "_project_type", "software"),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         self.checkpoint_path.write_text(json.dumps(ckpt, ensure_ascii=False, indent=2))
         log.info("checkpoint_saved", phase_idx=phase_idx)
+
+    # ── 项目类型检测与管线路由 ──
+
+    def _detect_project_type(self, request: str) -> str:
+        """识别项目类型：software / novel / game / analysis / audit"""
+        try:
+            resp = self.llm.chat([{"role": "user", "content": (
+                f"用户需求：{request[:200]}\n\n"
+                f"判断这是哪种项目类型？只输出类型名，不要其他内容：\n"
+                f"software - 软件开发/工具/系统/API\n"
+                f"novel    - 小说/故事/创作/世界观\n"
+                f"game     - 游戏/交互/玩法\n"
+                f"analysis - 分析/研究/报告\n"
+                f"audit    - 审计/审查/检查"
+            )}], system="分类专家。只输出类型名。", max_tokens=50, temperature=0.1)
+            for t in ("software", "novel", "game", "analysis", "audit"):
+                if t in resp.text.lower():
+                    return t
+        except Exception:
+            pass
+        return "software"
+
+    def _build_pipeline(self, project_type: str, design: str) -> list:
+        """CEO 根据项目类型 + 设计，用 LLM 动态生成管线"""
+        try:
+            resp = self.llm.chat([{"role": "user", "content": (
+                f"项目类型：{project_type}\n"
+                f"设计方案：{design[:2000]}\n\n"
+                f"为这个项目设计执行管线（3-6个阶段），每个阶段包含1-3个任务。\n"
+                f"任务间用 deps 表达依赖关系。\n"
+                f"只输出 JSON，不要其他内容：\n"
+                f'[\n'
+                f'  {{"name":"阶段名","tasks":[{{"id":"t1","name":"任务名","description":"描述","deps":[]}}]}}\n'
+                f']'
+            )}], system="项目管理专家。输出严格JSON。", max_tokens=4096, temperature=0.3)
+
+            json_match = re.search(r'\[.*\]', resp.text, re.DOTALL)
+            if json_match:
+                phases = json.loads(json_match.group())
+                if isinstance(phases, list) and len(phases) >= 2:
+                    return phases
+        except Exception:
+            pass
+        # 兜底：简单两阶段
+        return [
+            {"name": "规划", "tasks": [{"id": "plan", "name": "方案细化", "description": design[:200], "deps": []}]},
+            {"name": "执行", "tasks": [{"id": "exec", "name": "落地执行", "description": "按设计方案执行", "deps": ["plan"]}]},
+        ]
 
     def _load_checkpoint(self) -> dict:
         """加载 checkpoint"""

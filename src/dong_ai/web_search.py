@@ -4,6 +4,8 @@
 比 v1（HTML 解析）更稳定，支持中英文，返回结构化数据。
 """
 
+from __future__ import annotations
+
 import re
 
 def search(query: str, max_results: int = 5) -> list[dict]:

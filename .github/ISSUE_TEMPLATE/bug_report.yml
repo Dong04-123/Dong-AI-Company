@@ -1,0 +1,30 @@
+name: Bug Report
+description: 报告一个 Bug
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 怎么触发的？
+      placeholder: |
+        1. dong chat
+        2. 输入 "..."
+        3. 报错
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: dong version 输出
