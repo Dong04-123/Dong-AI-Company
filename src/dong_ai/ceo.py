@@ -348,38 +348,31 @@ class CEO:
         return "software"
 
     def _build_pipeline(self, project_type: str, design: str) -> list:
-        """根据项目类型生成执行管线"""
-        pipelines = {
-            "software": [
-                {"name": "架构搭建", "tasks": [{"id": "scaffold", "name": "项目脚手架", "description": "创建目录结构、配置文件", "deps": []}]},
-                {"name": "核心开发", "tasks": [{"id": "core", "name": "核心模块", "description": design[:300], "deps": ["scaffold"]}]},
-                {"name": "测试集成", "tasks": [{"id": "test", "name": "测试与集成", "description": "单元测试、集成测试", "deps": ["core"]}]},
-                {"name": "文档发布", "tasks": [{"id": "docs", "name": "文档与发布", "description": "README、CHANGELOG、版本号", "deps": ["test"]}]},
-            ],
-            "novel": [
-                {"name": "世界观", "tasks": [{"id": "world", "name": "世界观设定", "description": "角色、地点、时间线", "deps": []}]},
-                {"name": "大纲", "tasks": [{"id": "outline", "name": "章节大纲", "description": design[:300], "deps": ["world"]}]},
-                {"name": "创作", "tasks": [{"id": "write", "name": "正文创作", "description": "逐章写作", "deps": ["outline"]}]},
-                {"name": "修订", "tasks": [{"id": "revise", "name": "修订润色", "description": "一致性检查、润色", "deps": ["write"]}]},
-            ],
-            "game": [
-                {"name": "设计文档", "tasks": [{"id": "gdd", "name": "游戏设计文档", "description": "玩法、系统、数值", "deps": []}]},
-                {"name": "核心机制", "tasks": [{"id": "mechanics", "name": "核心玩法", "description": design[:300], "deps": ["gdd"]}]},
-                {"name": "内容开发", "tasks": [{"id": "content", "name": "关卡/UI/资源", "description": "游戏内容实现", "deps": ["mechanics"]}]},
-                {"name": "测试打包", "tasks": [{"id": "build", "name": "测试与构建", "description": "可玩版本", "deps": ["content"]}]},
-            ],
-            "analysis": [
-                {"name": "数据采集", "tasks": [{"id": "collect", "name": "数据收集", "description": "获取原始数据", "deps": []}]},
-                {"name": "分析", "tasks": [{"id": "analyze", "name": "数据分析", "description": design[:300], "deps": ["collect"]}]},
-                {"name": "报告", "tasks": [{"id": "report", "name": "报告撰写", "description": "结论与建议", "deps": ["analyze"]}]},
-            ],
-            "audit": [
-                {"name": "范围确定", "tasks": [{"id": "scope", "name": "审计范围", "description": "确定审计边界", "deps": []}]},
-                {"name": "执行审计", "tasks": [{"id": "audit", "name": "逐项审查", "description": design[:300], "deps": ["scope"]}]},
-                {"name": "报告", "tasks": [{"id": "findings", "name": "发现与建议", "description": "问题清单与修复建议", "deps": ["audit"]}]},
-            ],
-        }
-        return pipelines.get(project_type, pipelines["software"])
+        """CEO 根据项目类型 + 设计，用 LLM 动态生成管线"""
+        try:
+            resp = self.llm.chat([{"role": "user", "content": (
+                f"项目类型：{project_type}\n"
+                f"设计方案：{design[:2000]}\n\n"
+                f"为这个项目设计执行管线（3-6个阶段），每个阶段包含1-3个任务。\n"
+                f"任务间用 deps 表达依赖关系。\n"
+                f"只输出 JSON，不要其他内容：\n"
+                f'[\n'
+                f'  {{"name":"阶段名","tasks":[{{"id":"t1","name":"任务名","description":"描述","deps":[]}}]}}\n'
+                f']'
+            )}], system="项目管理专家。输出严格JSON。", max_tokens=4096, temperature=0.3)
+
+            json_match = re.search(r'\[.*\]', resp.text, re.DOTALL)
+            if json_match:
+                phases = json.loads(json_match.group())
+                if isinstance(phases, list) and len(phases) >= 2:
+                    return phases
+        except Exception:
+            pass
+        # 兜底：简单两阶段
+        return [
+            {"name": "规划", "tasks": [{"id": "plan", "name": "方案细化", "description": design[:200], "deps": []}]},
+            {"name": "执行", "tasks": [{"id": "exec", "name": "落地执行", "description": "按设计方案执行", "deps": ["plan"]}]},
+        ]
 
     def _load_checkpoint(self) -> dict:
         """加载 checkpoint"""
