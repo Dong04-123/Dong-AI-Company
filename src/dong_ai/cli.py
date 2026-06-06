@@ -209,6 +209,7 @@ def main() -> None:
     if cmd == "debug": return _cmd_debug(args[1:])
     if cmd == "company": return _cmd_company(args[1:])
     if cmd in ("make", "vision"): return _cmd_make(args)
+    if cmd == "gateway": return _cmd_gateway(args[1:])
     print(f"{T('unknown')}: {cmd}")
     print(f"{T('available')}: chat, run, serve, detect, config, skill, session, mcp, cron, webhook, setup, version")
     sys.exit(1)
@@ -756,6 +757,55 @@ def _cmd_make(args: list[str]) -> None:
         vp.run()
     except KeyboardInterrupt:
         print(f"\n  Interrupted. State saved.")
+
+
+# ── gateway ──
+
+def _cmd_gateway(args: list[str]) -> None:
+    """模型网关 — 管理多个 API Key 的优先级和分层"""
+    from .gateway import list_providers, set_priority, set_tier, resolve
+
+    cmd = args[0] if args else "list"
+
+    if cmd == "list":
+        providers = list_providers()
+        if not providers:
+            print(f"  ⚠️  未检测到 API Key")
+            print(f"  {C.B}dong setup{C.R}  配置 API Key")
+            return
+
+        print(f"\n  {C.B}🌐 模型网关{C.R}")
+        print(f"  {'─'*60}")
+        print(f"  {'Provider':<20} {'状态':<10} {'层级':<10} {'模型':<20}")
+        print(f"  {'─'*60}")
+        for p in providers:
+            status = f"{C.GN}● 已配置{C.R}" if p["has_key"] else f"{C.D}○ 未配置{C.R}"
+            tier_icon = {"cheap": f"{C.GN}经济{C.R}", "expensive": f"{C.R2}主力{C.R}", "auto": f"{C.D}自动{C.R}"}
+            tier = tier_icon.get(p["tier"], p["tier"])
+            model = p["models"][0][:25] if p["models"] else "-"
+            print(f"  {p['id']:<20} {status:<12} {tier:<12} {model}")
+        print(f"  {'─'*60}")
+        providers_with_keys = [p for p in providers if p["has_key"]]
+        if providers_with_keys:
+            print(f"  {C.D}路由:{C.R}")
+            for task in ["research", "draft", "analyze", "quick"]:
+                r = resolve(task)
+                if r:
+                    print(f"    {task:<12} → {r['name']} ({r['models'][0][:20]})")
+
+    elif cmd == "set" and len(args) >= 2:
+        set_priority(args[1])
+        print(f"  ✅ 已设 {args[1]} 为首选")
+
+    elif cmd == "tier" and len(args) >= 3:
+        set_tier(args[1], args[2])
+        print(f"  ✅ {args[1]} → {args[2]}")
+
+    else:
+        print(f"  用法:")
+        print(f"    {C.B}dong gateway list{C.R}              查看所有 provider")
+        print(f"    {C.B}dong gateway set <provider>{C.R}    设为首选")
+        print(f"    {C.B}dong gateway tier <p> <层级>{C.R}    设分层 (cheap/expensive/auto)")
 
 
 # ── update / upgrade ──
