@@ -32,3 +32,8 @@ dong = "dong_ai.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["dong_ai*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --tb=short -W ignore::DeprecationWarning"
