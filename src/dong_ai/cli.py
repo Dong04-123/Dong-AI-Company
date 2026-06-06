@@ -763,6 +763,21 @@ def _cmd_make(args: list[str]) -> None:
 
 # ── gateway ──
 
+def _gateway_best_task(pid: str) -> str:
+    """返回 provider 最适合的任务类型"""
+    from .gateway import _TASK_PROFILES, _score_provider
+    best_task = "auto"
+    best_score = -1
+    for task in _TASK_PROFILES:
+        if task == "auto":
+            continue
+        score = _score_provider(pid, task)
+        if score > best_score:
+            best_score = score
+            best_task = task
+    labels = {"quick": "quick响应", "research": "研究分析", "draft": "生成创作", "analyze": "深度分析", "code": "代码生成"}
+    return labels.get(best_task, best_task)
+
 def _cmd_gateway(args: list[str]) -> None:
     """模型网关 — 管理多个 API Key 的优先级和分层"""
     from .gateway import list_providers, set_priority, set_tier, resolve
@@ -776,25 +791,26 @@ def _cmd_gateway(args: list[str]) -> None:
             print(f"  {C.B}dong setup{C.R}  配置 API Key")
             return
 
-        print(f"\n  {C.B}🌐 模型网关{C.R}")
-        print(f"  {'─'*60}")
-        print(f"  {'Provider':<20} {'状态':<10} {'层级':<10} {'模型':<20}")
-        print(f"  {'─'*60}")
+        print(f"\n  {C.B}Gateway — 可用模型{C.R}")
+        print(f"  {'─'*65}")
+        print(f"  {'Provider':<18} {'速度':>5} {'质量':>5} {'上下文':>5} {'任务':<20}")
+        print(f"  {'─'*65}")
         for p in providers:
-            status = f"{C.GN}● 已配置{C.R}" if p["has_key"] else f"{C.D}○ 未配置{C.R}"
-            tier_icon = {"cheap": f"{C.GN}经济{C.R}", "expensive": f"{C.R2}主力{C.R}", "auto": f"{C.D}自动{C.R}"}
-            tier = tier_icon.get(p["tier"], p["tier"])
-            model = p["models"][0][:25] if p["models"] else "-"
-            print(f"  {p['id']:<20} {status:<12} {tier:<12} {model}")
-        print(f"  {'─'*60}")
+            status = "●" if p["has_key"] else "○"
+            task = _gateway_best_task(p["id"])
+            print(f"  {status} {p['id']:<16} {p['speed']:>4}  {p['quality']:>4}  {p['context_score']:>4}  {task:<20}")
+        print(f"  {'─'*65}")
         providers_with_keys = [p for p in providers if p["has_key"]]
         if providers_with_keys:
-            print(f"  {C.D}路由:{C.R}")
-            for task in ["research", "draft", "analyze", "quick"]:
+            print(f"  {C.D}智能路由:{C.R}")
+            for task in ["quick", "research", "draft", "analyze", "code"]:
+                from .gateway import resolve, resolve_chain
                 r = resolve(task)
+                chain = resolve_chain(task)
                 if r:
-                    print(f"    {task:<12} → {r['name']} ({r['models'][0][:20]})")
-
+                    names = [c["id"] for c in chain[:3]]
+                    print(f"    {task:<12} → {C.B}{r['id']}{C.R}  (fallback: {', '.join(names[1:])})")
+        return
     elif cmd == "set" and len(args) >= 2:
         set_priority(args[1])
         print(f"  ✅ 已设 {args[1]} 为首选")
