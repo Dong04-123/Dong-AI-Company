@@ -10,6 +10,8 @@
   dong detect        # 检测可用模型
 """
 
+from __future__ import annotations
+
 __version__ = "0.1.0"
 
 from .ceo import CEO

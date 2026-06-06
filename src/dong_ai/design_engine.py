@@ -3,6 +3,7 @@ Dong AI — 设计引擎
 
 从 ceo.py 拆出的独立模块：设计阶段、红蓝辩论、自评分
 """
+from __future__ import annotations
 
 import re
 from .logger import get_logger
@@ -12,66 +13,66 @@ log = get_logger("design")
 
 class DesignEngine:
     """设计引擎——负责接收需求、红蓝辩论、输出方案和评分"""
-    
-    def __init__(self, llm_client, datastore):
+
+    def __init__(self, llm_client, datastore) -> None:
         self.llm = llm_client
         self.ds = datastore
-    
+
     def design(self, user_request: str, max_retries: int = 3) -> dict:
         """完整设计流程 + 需求清单拆解"""
         attempt = 0
         last_score = 0
         current_request = user_request
-        
+
         while attempt < max_retries:
             attempt += 1
             log.info("design_attempt", attempt=attempt, request=current_request[:50])
-            
+
             # 事前验尸
             premortem = self.llm.chat([
                 {"role": "user", "content": f"需求：{current_request}\n\n假设项目6个月后彻底失败。列出3-5个最可能的原因和预防措施。"}
             ], system="你是风险分析师。简洁明了。", max_tokens=1024, temperature=0.5)
             self.ds.add_decision("premortem", premortem.text)
-            
+
             # 初始设计
             risk_ctx = f"\n\n已识别风险（必须规避）：\n{premortem.text[:500]}"
             design = self.llm.chat([
                 {"role": "user", "content": f"需求：{current_request}\n\n输出完整设计方案。{risk_ctx}"}
             ], system="你是资深架构师。", max_tokens=8192, temperature=0.5)
             self.ds.add_decision("design_initial", design.text)
-            
+
             # 红队审查
             red_team = self.llm.chat([
                 {"role": "user", "content": f"审查方案：\n{design.text}\n\n按严重程度列出问题，给出改进建议。"}
             ], system="你是红队审查专家。", max_tokens=4096, temperature=0.7)
             self.ds.add_decision("red_team_review", red_team.text)
-            
+
             # 改进
             improved = self.llm.chat([
                 {"role": "user", "content": f"原始方案：\n{design.text}\n\n反馈：\n{red_team.text}\n\n改进输出最终版。"}
             ], system="你是资深架构师。吸收反馈，改进方案。", max_tokens=8192, temperature=0.3)
             self.ds.add_decision("design_final", improved.text)
-            
+
             # 评分
             score_str = self.llm.chat([
                 {"role": "user", "content": f"给方案打分(1-10)。输出格式：总分: X.X\n\n{improved.text}"}
             ], system="严格的评审委员。8分以上已经很优秀。", max_tokens=200, temperature=0.1)
-            
+
             try:
                 score = float(re.search(r'总分[：:]\s*(\d+\.?\d*)', score_str.text).group(1))
             except:
                 score = 7.0
-            
+
             log.info("design_scored", attempt=attempt, score=score)
             self.ds.add_decision("self_score", f"评分: {score}", score=score)
-            
+
             if score >= 9:
                 requirements = self._extract_requirements(improved.text)
                 return {"design": improved.text, "score": score, "requirements": requirements}
-            
+
             last_score = score
             current_request = f"{user_request}\n\n之前评分{score}，请大幅改进。"
-        
+
         requirements = self._extract_requirements(improved.text)
         return {"design": improved.text, "score": last_score, "requirements": requirements}
 

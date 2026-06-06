@@ -1,0 +1,55 @@
+{
+  "name": "@dong-ai/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Dong AI Company API — OpenAI-compatible endpoints for chat, model listing, project execution, and health monitoring",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react.js",
+      "types": "./dist/react.d.ts"
+    }
+  },
+  "bin": {
+    "dongai": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^3.0.0"
+  },
+  "keywords": [
+    "dong-ai",
+    "openai-compatible",
+    "sdk",
+    "typescript",
+    "ai"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dong-ai/sdk-typescript"
+  }
+}

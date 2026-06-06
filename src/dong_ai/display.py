@@ -1,4 +1,6 @@
 """Dong AI — 终端显示引擎"""
+from __future__ import annotations
+
 import re, time
 from pathlib import Path
 
@@ -25,21 +27,21 @@ BG = C.BG
 WIDTH = 72
 
 
-def box_top(label: str = ""):
+def box_top(label: str = "") -> None:
     pad = WIDTH - len(label) - 6
     print(f"  {D}╭─{R} {B}{label}{R} {D}{'─'*max(0,pad)}╮{R}")
 
 
-def box_bottom():
+def box_bottom() -> None:
     print(f"  {D}╰{'─'* (WIDTH-2)}╯{R}")
 
 
-def sep():
+def sep() -> None:
     print(f"  {D}{'─'* (WIDTH-2)}{R}")
 
 
 def status_line(company: str, model: str, msgs: int, phase: str, score: str,
-                state: dict = None, model_pool=None):
+                state: dict = None, model_pool=None) -> None:
     icon = "⚡" if phase == "运行中" else "●"
     score_disp = f"{P}{score}{R}" if score != "—" else f"{G}—{R}"
     parts = [f"{GN}{icon}{R} {B}{company}{R}", f"{D}model:{R} {model}"]
@@ -80,7 +82,7 @@ def render_markdown(text: str) -> str:
     return text
 
 
-def print_assistant(text: str):
+def print_assistant(text: str) -> None:
     rendered = render_markdown(text)
     for line in rendered.split('\n'):
         line = line.rstrip()
@@ -99,7 +101,7 @@ def print_assistant(text: str):
             print(f"  {D}┊{R} {line}")
 
 
-def print_banner(name: str, model_name: str, mode: str, model_pool=None):
+def print_banner(name: str, model_name: str, mode: str, model_pool=None) -> None:
     """启动头：Logo + 专业信息"""
     logo = f"""  {P}{B}
   ██████╗  ██████╗ ███╗   ██╗ ██████╗     █████╗ ██╗

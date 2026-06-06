@@ -8,6 +8,7 @@ Dong AI — CEO 长期记忆框架 (v2)
   Fact — 事实 KV
   Episode — 摘要
 """
+from __future__ import annotations
 
 import os, re, time
 from pathlib import Path
@@ -48,7 +49,7 @@ class CEOMemory:
         },
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_dir = Path.home() / ".dong" / "ceo"
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.soul_path = self.base_dir / "soul.md"
@@ -68,7 +69,7 @@ class CEOMemory:
             return self.soul_path.read_text().strip()
         return ""
 
-    def soul_set(self, text: str):
+    def soul_set(self, text: str) -> None:
         self.soul_path.write_text(text.strip() + "\n")
 
     # ── Facts ──
@@ -76,10 +77,10 @@ class CEOMemory:
     def get(self, key: str) -> str:
         return self.mem.get(key)
 
-    def set(self, key: str, value: str, category: str = "fact", source: str = "auto"):
+    def set(self, key: str, value: str, category: str = "fact", source: str = "auto") -> None:
         self.mem.set(key, value, category, source)
 
-    def delete(self, key: str):
+    def delete(self, key: str) -> None:
         self.mem.delete(key)
 
     def facts(self, category: str = "") -> list:
@@ -87,7 +88,7 @@ class CEOMemory:
 
     # ── Episodes ──
 
-    def compress(self, text: str):
+    def compress(self, text: str) -> None:
         self.ds.conn.execute(
             "INSERT INTO episodes (summary, token_estimate, created_at) VALUES (?,?,?)",
             (text[:500], len(text)//2, datetime.now(timezone.utc).isoformat()))
@@ -103,13 +104,13 @@ class CEOMemory:
     def session_start(self, sid: str = None) -> str:
         return self.sessions.create(sid)
 
-    def session_save(self, sid: str, role: str, content: str):
+    def session_save(self, sid: str, role: str, content: str) -> None:
         if self._is_trivial(content) and role == 'user':
             return
         self.sessions.save_message(sid, role, content)
         self._auto_compress(sid)
 
-    def _auto_compress(self, sid: str):
+    def _auto_compress(self, sid: str) -> None:
         now = time.time()
         if now - self._last_compress_check < 5:
             return
@@ -134,7 +135,7 @@ class CEOMemory:
                 c.execute("UPDATE sessions SET message_count = message_count - ?, compressed = compressed + 1 WHERE id=?", (len(ids), sid))
             c.commit()
 
-    def session_list(self, limit=10):
+    def session_list(self, limit=10) -> list:
         return self.sessions.list_recent(limit)
 
     def session_load(self, sid: str) -> dict:
@@ -216,7 +217,7 @@ class CEOMemory:
         except: pass
         return "local"  # 没有 key → 本地
 
-    def config_set(self, key: str, value: str):
+    def config_set(self, key: str, value: str) -> None:
         import configparser
         cfg = configparser.ConfigParser()
         cfg_path = self.base_dir.parent / "config.ini"

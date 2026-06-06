@@ -10,6 +10,8 @@ skill 目录：
 
 skill 文件格式：标准 markdown，含 frontmatter
 """
+from __future__ import annotations
+
 import os
 import re
 from datetime import datetime, timezone
@@ -203,7 +205,7 @@ def _is_excluded(path: str) -> bool:
     return False
 
 
-def ensure_skill_dir():
+def ensure_skill_dir() -> None:
     SKILL_DIR.mkdir(parents=True, exist_ok=True)
 
 

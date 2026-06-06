@@ -14,6 +14,7 @@ Dong AI — 统一持久化层
 
 表架构自动初始化，连接复用。
 """
+from __future__ import annotations
 
 import sqlite3, json, time, os
 from pathlib import Path
@@ -23,16 +24,16 @@ from typing import Optional
 
 class Datastore:
     """统一数据存储——管理所有 SQLite 文件和连接"""
-    
+
     _instance = None
-    
-    def __new__(cls):
+
+    def __new__(cls) -> Datastore:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._init()
         return cls._instance
-    
-    def _init(self):
+
+    def _init(self) -> None:
         self.base_dir = Path.home() / ".dong"
         self.base_dir.mkdir(parents=True, exist_ok=True)
         # 持久化连接
@@ -41,8 +42,8 @@ class Datastore:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._init_schema()
-    
-    def _init_schema(self):
+
+    def _init_schema(self) -> None:
         self._conn.executescript("""
             CREATE TABLE IF NOT EXISTS facts (
                 key TEXT PRIMARY KEY, value TEXT NOT NULL,
@@ -127,12 +128,12 @@ class Datastore:
             );
         """)
         self._conn.commit()
-    
+
     @property
     def conn(self) -> sqlite3.Connection:
         return self._conn
-    
-    def close(self):
+
+    def close(self) -> None:
         self._conn.close()
         Datastore._instance = None
 
@@ -141,33 +142,33 @@ class Datastore:
 
 class MemoryRepository:
     """记忆存储"""
-    
-    def __init__(self, ds: Datastore):
+
+    def __init__(self, ds: Datastore) -> None:
         self.c = ds.conn
-    
+
     def get(self, key: str) -> str:
         cur = self.c.execute("SELECT value FROM facts WHERE key=?", (key,))
         row = cur.fetchone()
         return row[0] if row else ""
-    
-    def set(self, key: str, value: str, category: str = "fact", source: str = "auto"):
+
+    def set(self, key: str, value: str, category: str = "fact", source: str = "auto") -> None:
         now = datetime.now(timezone.utc).isoformat()
         self.c.execute(
             "INSERT OR REPLACE INTO facts (key, value, category, source, created_at, updated_at) VALUES (?,?,?,?,?,?)",
             (key, value, category, source, now, now))
         self.c.commit()
-    
-    def delete(self, key: str):
+
+    def delete(self, key: str) -> None:
         self.c.execute("DELETE FROM facts WHERE key=?", (key,))
         self.c.commit()
-    
+
     def list(self, category: str = "") -> list:
         if category:
             cur = self.c.execute("SELECT key, value, category, source FROM facts WHERE category=? ORDER BY key", (category,))
         else:
             cur = self.c.execute("SELECT key, value, category, source FROM facts ORDER BY category, key")
         return [{"key": r[0], "value": r[1], "category": r[2], "source": r[3]} for r in cur.fetchall()]
-    
+
     def query(self, q: str) -> list:
         kw = f"%{q}%"
         cur = self.c.execute(
@@ -178,10 +179,10 @@ class MemoryRepository:
 
 class SessionRepository:
     """会话存储"""
-    
-    def __init__(self, ds: Datastore):
+
+    def __init__(self, ds: Datastore) -> None:
         self.c = ds.conn
-    
+
     def create(self, sid: str = None) -> str:
         import uuid
         sid = sid or f"s{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
@@ -190,25 +191,25 @@ class SessionRepository:
                        (sid, f"会话 {sid[-8:]}", now, now))
         self.c.commit()
         return sid
-    
-    def save_message(self, sid: str, role: str, content: str):
+
+    def save_message(self, sid: str, role: str, content: str) -> None:
         now = datetime.now(timezone.utc).isoformat()
         self.c.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                        (sid, role, content[:2000], now))
         self.c.execute("UPDATE sessions SET message_count = message_count + 1, updated_at = ? WHERE id=?",
                        (now, sid))
         self.c.commit()
-    
+
     def get_messages(self, sid: str) -> list:
         cur = self.c.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id", (sid,))
         return [{"role": r[0], "content": r[1]} for r in cur.fetchall()]
-    
+
     def list_recent(self, limit: int = 10) -> list:
         cur = self.c.execute(
             "SELECT id, title, message_count, created_at FROM sessions ORDER BY updated_at DESC LIMIT ?",
             (limit,))
         return [{"id": r[0], "title": r[1], "msgs": r[2], "time": r[3][:19]} for r in cur.fetchall()]
-    
+
     def search(self, q: str, limit: int = 10) -> list:
         kw = f"%{q}%"
         cur = self.c.execute(
@@ -219,19 +220,19 @@ class SessionRepository:
 
 class ProjectRepository:
     """项目图谱存储"""
-    
-    def __init__(self, ds: Datastore):
+
+    def __init__(self, ds: Datastore) -> None:
         self.c = ds.conn
-    
-    def add_decision(self, phase: str, content: str, score: float = 0):
+
+    def add_decision(self, phase: str, content: str, score: float = 0) -> None:
         self.c.execute("INSERT INTO decisions (phase, content, score, timestamp) VALUES (?,?,?,?)",
                        (phase, content, score, datetime.now(timezone.utc).isoformat()))
         self.c.commit()
-    
+
     def get_decisions(self, limit: int = 20) -> list:
         cur = self.c.execute("SELECT phase, content, score FROM decisions ORDER BY id DESC LIMIT ?", (limit,))
         return [{"phase": r[0], "content": r[1][:100], "score": r[2]} for r in cur.fetchall()]
-    
+
     def query(self, q: str) -> list:
         kw = f"%{q}%"
         results = []
@@ -252,22 +253,22 @@ class ProjectRepository:
 
 class LoreRepository:
     """世界观存储"""
-    
-    def __init__(self, ds: Datastore):
+
+    def __init__(self, ds: Datastore) -> None:
         self.c = ds.conn
-    
-    def add(self, category: str, name: str, description: str, chapter: int = 0):
+
+    def add(self, category: str, name: str, description: str, chapter: int = 0) -> None:
         self.c.execute("INSERT INTO lore (category, name, description, chapter_introduced, created_at) VALUES (?,?,?,?,?)",
                        (category, name, description, chapter, datetime.now(timezone.utc).isoformat()))
         self.c.commit()
-    
+
     def query(self, q: str) -> list:
         kw = f"%{q}%"
         cur = self.c.execute(
             "SELECT category, name, description FROM lore WHERE name LIKE ? OR description LIKE ? LIMIT 10",
             (kw, kw))
         return [{"source": "lore", "category": r[0], "key": r[1], "value": r[2]} for r in cur.fetchall()]
-    
+
     def count(self) -> int:
         return self.c.execute("SELECT COUNT(*) FROM lore").fetchone()[0]
 
@@ -275,12 +276,12 @@ class LoreRepository:
 class GraphRepository:
     """代码图存储 — 符号索引 + 依赖关系"""
 
-    def __init__(self, ds: Datastore):
+    def __init__(self, ds: Datastore) -> None:
         self.c = ds.conn
 
     def add_node(self, project_id: str, node_type: str, node_name: str,
                  file_path: str = "", line_number: int = 0,
-                 signature: str = "", detail: str = ""):
+                 signature: str = "", detail: str = "") -> None:
         text_idx = f"{node_name} {signature} {detail} {file_path}"
         emb = self._embed(text_idx)
         self.c.execute(
@@ -290,7 +291,7 @@ class GraphRepository:
              datetime.now(timezone.utc).isoformat()))
         self.c.commit()
 
-    def add_dep(self, project_id: str, from_node: str, to_node: str, dep_type: str = "import"):
+    def add_dep(self, project_id: str, from_node: str, to_node: str, dep_type: str = "import") -> None:
         self.c.execute(
             "INSERT INTO code_deps (project_id, from_node, to_node, dep_type, created_at) VALUES (?,?,?,?,?)",
             (project_id, from_node, to_node, dep_type,
@@ -330,7 +331,7 @@ class GraphRepository:
 
     # ── 图遍历 ──
 
-    def traverse(self, project_id: str, node_name: str, depth: int = 1) -> list:
+    def traverse(self, project_id: str, node_name: str, depth: int = 1) -> dict:
         """从节点出发沿依赖链遍历，返回所有相关节点"""
         related = set()
         related.add(node_name)
@@ -430,18 +431,6 @@ class GraphRepository:
                 "SELECT * FROM code_deps WHERE project_id=?",
                 (project_id,))
         return [dict(r) for r in cur.fetchall()]
-
-    def query(self, q: str, project_id: str = "") -> list:
-        kw = f"%{q}%"
-        if project_id:
-            cur = self.c.execute(
-                "SELECT node_name, node_type, file_path, signature FROM codegraph WHERE project_id=? AND (node_name LIKE ? OR signature LIKE ?) LIMIT 10",
-                (project_id, kw, kw))
-        else:
-            cur = self.c.execute(
-                "SELECT node_name, node_type, file_path, signature FROM codegraph WHERE node_name LIKE ? OR signature LIKE ? LIMIT 10",
-                (kw, kw))
-        return [{"name": r[0], "type": r[1], "file": r[2], "signature": r[3]} for r in cur.fetchall()]
 
     def format_context(self, project_id: str, keywords: list = None) -> str:
         parts = []

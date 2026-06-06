@@ -4,9 +4,11 @@
 依赖：Chrome（~/.agent-browser 中已有），零 Python 依赖
 
 工具：
-  browser_navigate url=https://... → 获取渲染后页面文本
-  browser_screenshot url=https://... → 截图保存到桌面
+  browser_navigate url=... → 获取渲染后页面文本
+  browser_screenshot url=... → 截图保存到桌面
 """
+
+from __future__ import annotations
 
 import subprocess, os, re, time
 from pathlib import Path

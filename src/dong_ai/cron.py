@@ -7,6 +7,8 @@
   dong cron start        启动调度器（后台）
 """
 
+from __future__ import annotations
+
 import json, os, time, threading
 from pathlib import Path
 
@@ -21,7 +23,7 @@ def load_tasks() -> list:
     return []
 
 
-def save_tasks(tasks: list):
+def save_tasks(tasks: list) -> None:
     CRON_FILE.parent.mkdir(parents=True, exist_ok=True)
     CRON_FILE.write_text(json.dumps({"tasks": tasks}, ensure_ascii=False, indent=2))
 
@@ -40,7 +42,7 @@ def _parse_interval(text: str) -> int:
     return int(text)
 
 
-def add_task(name: str, command: str, interval: str):
+def add_task(name: str, command: str, interval: str) -> None:
     tasks = load_tasks()
     tid = f"cron_{int(time.time())}"
     tasks.append({
@@ -57,7 +59,7 @@ def add_task(name: str, command: str, interval: str):
     print(f"  ID: {tid}")
 
 
-def remove_task(tid: str):
+def remove_task(tid: str) -> None:
     tasks = load_tasks()
     before = len(tasks)
     tasks = [t for t in tasks if t["id"] != tid]
@@ -68,7 +70,7 @@ def remove_task(tid: str):
         print(f"  ⚠️ 未找到: {tid}")
 
 
-def list_tasks():
+def list_tasks() -> None:
     tasks = load_tasks()
     if not tasks:
         print("没有定时任务")
@@ -85,36 +87,36 @@ def list_tasks():
 class CronScheduler:
     """简单的循环定时调度器"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._timers = []
         self._running = False
 
-    def start(self):
+    def start(self) -> None:
         if self._running:
             return
         self._running = True
         print("  Cron 调度器已启动")
         self._schedule_all()
 
-    def stop(self):
+    def stop(self) -> None:
         self._running = False
         for t in self._timers:
             t.cancel()
         self._timers.clear()
         print("  Cron 调度器已停止")
 
-    def _schedule_all(self):
+    def _schedule_all(self) -> None:
         tasks = load_tasks()
         for t in tasks:
             if t.get("enabled", True):
                 self._schedule_one(t)
 
-    def _schedule_one(self, task):
+    def _schedule_one(self, task: dict) -> None:
         if not self._running:
             return
         secs = task.get("interval_seconds", 3600)
 
-        def run():
+        def run() -> None:
             if not self._running:
                 return
             try:

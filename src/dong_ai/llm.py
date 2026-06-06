@@ -12,6 +12,7 @@ model_pool 的 call()/call_stream() 委托给此模块。
   for token in client.chat_stream(messages):
       print(token)
 """
+from __future__ import annotations
 
 import json, os, urllib.request
 from typing import Generator
@@ -30,11 +31,11 @@ class LLMConfig:
 
 class LLMResponse:
     """结构化 LLM 响应"""
-    def __init__(self, text: str, usage: dict = None):
+    def __init__(self, text: str, usage: dict = None) -> None:
         self.text = text
         self.usage = usage or {"prompt": 0, "completion": 0, "total": 0}
 
-    def json(self):
+    def json(self) -> dict:
         import re
         m = re.search(r'```(?:json)?\s*\n(.*?)\n```', self.text, re.DOTALL)
         if m:
@@ -44,7 +45,7 @@ class LLMResponse:
 
 class LLMClient:
     """LLM 客户端接口——所有 LLM 调用通过此接口"""
-    def __init__(self, config: LLMConfig = None):
+    def __init__(self, config: LLMConfig = None) -> None:
         self.config = config or LLMConfig()
         self._usage_total = {"prompt": 0, "completion": 0, "total": 0}
 
@@ -68,7 +69,7 @@ class OpenAICompatibleClient(LLMClient):
 
     HEADERS = {"Content-Type": "application/json"}
 
-    def _build_payload(self, messages, system, stream, **kwargs):
+    def _build_payload(self, messages: list, system: str, stream: bool, **kwargs) -> dict:
         cfg = {**vars(self.config), **kwargs}
         payload = {
             "model": cfg["model"],
@@ -81,7 +82,7 @@ class OpenAICompatibleClient(LLMClient):
             payload.update(kwargs)
         return payload
 
-    def _request(self, payload, stream=False):
+    def _request(self, payload: dict, stream: bool = False):
         headers = dict(self.HEADERS)
         if self.config.api_key:
             headers["Authorization"] = f"Bearer {self.config.api_key}"
@@ -91,7 +92,7 @@ class OpenAICompatibleClient(LLMClient):
             headers=headers, method="POST")
         return urllib.request.urlopen(req, timeout=self.config.timeout)
 
-    def chat(self, messages, system="", **kwargs) -> LLMResponse:
+    def chat(self, messages: list, system: str = "", **kwargs) -> LLMResponse:
         payload = self._build_payload(messages, system, stream=False, **kwargs)
         with self._request(payload) as resp:
             data = json.loads(resp.read())
@@ -103,7 +104,7 @@ class OpenAICompatibleClient(LLMClient):
         for k in u: self._usage_total[k] += u[k]
         return LLMResponse(choice, u)
 
-    def chat_stream(self, messages, system="", **kwargs) -> Generator[str, None, None]:
+    def chat_stream(self, messages: list, system: str = "", **kwargs) -> Generator[str, None, None]:
         payload = self._build_payload(messages, system, stream=True, **kwargs)
         payload["stream"] = True
         with self._request(payload) as resp:

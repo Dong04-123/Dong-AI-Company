@@ -1,9 +1,11 @@
 """Dong AI — 命令行入口"""
+from __future__ import annotations
+
 import sys, os, json, time
 from pathlib import Path
 
 
-def _lang():
+def _lang() -> str:
     """检测用户语言偏好"""
     l = os.environ.get("LANG", os.environ.get("LC_ALL", "zh_CN"))
     return "en" if l.startswith("en") else "zh"
@@ -39,12 +41,12 @@ _ = {
 }
 
 
-def T(key):
+def T(key: str) -> str:
     lang = _lang()
     return _.get(lang, _["zh"]).get(key, _["zh"].get(key, key))
 
 
-def main():
+def main() -> None:
     args = sys.argv[1:]
     cmd = args[0] if args else ""
 
@@ -69,8 +71,10 @@ def main():
     if cmd == "run": return _cmd_run(args[1:])
     if cmd == "serve": return _start_server(args[1:])
     if cmd == "config": return _cmd_config(args[1:])
+    if cmd == "key": return _cmd_key(args[1:])
     if cmd == "skill": return _cmd_skill(args[1:])
     if cmd == "session": return _cmd_session(args[1:])
+    if cmd == "plugin": return _cmd_plugin(args[1:])
     if cmd == "mcp": return _cmd_mcp(args[1:])
     if cmd == "cron": return _cmd_cron(args[1:])
     if cmd == "webhook": return _cmd_webhook(args[1:])
@@ -83,12 +87,28 @@ def main():
     sys.exit(1)
 
 
-def _cmd_detect():
+def _cmd_detect() -> None:
     from dong_ai.model_pool import ModelPool
     print(ModelPool().detect())
+    # 显示内置 MCP 服务器
+    from dong_ai.plugin_registry import list_plugins
+    plugins = list_plugins()
+    builtin = [p for p in plugins if p["status"] == "builtin"]
+    if builtin:
+        print(f"\n📦 内置 MCP 工具 ({len(builtin)}):")
+        for p in builtin:
+            print(f"   {p['name']:<20} {p['command']} {' '.join(p.get('args',[]))[:40]}")
+    installed = [p for p in plugins if p["status"] == "installed"]
+    if installed:
+        print(f"\n🔌 已安装插件 ({len(installed)}):")
+        for p in installed:
+            print(f"   {p['name']:<20} {p['command']} {' '.join(p.get('args',[]))[:40]}")
+    print("\n快速命令:")
+    print("   dong plugin search         浏览插件市场")
+    print("   dong plugin install <name> 安装插件")
 
 
-def _cmd_run(args):
+def _cmd_run(args) -> None:
     request = " ".join(args) if args else ""
     if not request: print("用法: dong run \"需求\""); return
     from dong_ai.ceo import CEO
@@ -99,7 +119,7 @@ def _cmd_run(args):
 
 # ── config ──
 
-def _cmd_config(args):
+def _cmd_config(args) -> None:
     if not args or args[0] == "list": return _config_list()
     if args[0] == "get" and len(args) >= 2: return _config_get(args[1])
     if args[0] == "set" and len(args) >= 2 and "=" in args[1]:
@@ -108,7 +128,7 @@ def _cmd_config(args):
     print("用法: dong config [list] [get key] [set key=val]")
 
 
-def _config_list():
+def _config_list() -> None:
     from dong_ai.ceo_memory import CEOMemory
     mem = CEOMemory()
     cfg = mem.config_load()
@@ -131,27 +151,73 @@ def _config_list():
     print(f"  dong config set mode=local    # 本地：小窗口+积极")
     print(f"  dong config set mode=auto     # 自动检测")
 
-def _config_get(key):
+def _config_get(key) -> None:
     from dong_ai.ceo_memory import CEOMemory
     val = CEOMemory().config_load().get(key)
     print(f"{key} = {val}" if val else f"未找到: {key}")
 
 
-def _config_set(key, val):
+def _config_set(key, val) -> None:
     from dong_ai.ceo_memory import CEOMemory
     CEOMemory().config_set(key, val)
     print(f"  ✅ {key} = {val}")
 
 
+# ── key ──
+
+def _cmd_key(args) -> None:
+    """API Key 管理"""
+    if not args or args[0] == "list":
+        from dong_ai.key_manager import list_keys
+        keys = list_keys()
+        if keys:
+            print(f"API Keys ({len(keys)}):")
+            for k in keys:
+                revoked = " [已吊销]" if k["revoked"] else ""
+                print(f"  {k['fingerprint']:<28} {k['tenant']:<16} {k['description'][:40]}{revoked}")
+        else:
+            print("无 API Key。用 dong key create <tenant> 创建")
+        return
+    if args[0] == "create":
+        tenant = args[1] if len(args) > 1 else "default"
+        desc = " ".join(args[2:]) if len(args) > 2 else ""
+        from dong_ai.key_manager import create_key
+        key = create_key(tenant, desc)
+        print(f"  ✅ 已创建 API Key")
+        print(f"     Tenant: {tenant}")
+        print(f"     Key:    {key}")
+        print(f"     ┌─────────────────────────────────────────────┐")
+        print(f"     │  ⚠️  保存好此 key，生成后不会再次显示         │")
+        print(f"     │  客户端: curl -H 'Authorization: Bearer *** │")
+        print(f"     └─────────────────────────────────────────────┘")
+        return
+    if args[0] == "revoke" and len(args) >= 2:
+        from dong_ai.key_manager import revoke_key
+        if revoke_key(args[1]):
+            print(f"  ✅ Key {args[1][:16]}... 已吊销")
+        else:
+            print(f"  ✗ 未找到 key")
+        return
+    if args[0] == "verify" and len(args) >= 2:
+        from dong_ai.key_manager import verify_key
+        tenant = verify_key(args[1])
+        if tenant:
+            print(f"  ✅ 有效: tenant={tenant}")
+        else:
+            print(f"  ✗ 无效或已吊销")
+        return
+    print("用法: dong key [list|create <tenant> [desc]|revoke <key/fingerprint>|verify <key>]")
+
+
 # ── skill ──
 
-def _cmd_skill(args):
+def _cmd_skill(args) -> None:
     if not args or args[0] == "list": return _skill_list()
     if args[0] == "create" and len(args) >= 2: return _skill_create(args[1])
     print("用法: dong skill [list] [create name=desc]")
 
 
-def _skill_list():
+def _skill_list() -> None:
     from dong_ai.memory import get_registered_tools, SKILL_DIR, HERMES_SKILL_DIR
     tools = get_registered_tools()
     if tools:
@@ -171,7 +237,7 @@ def _skill_list():
     else: print("无 skill，用 dong skill create 创建")
 
 
-def _skill_create(expr):
+def _skill_create(expr) -> None:
     from dong_ai.memory import SKILL_DIR, ensure_skill_dir
     name = expr.split("=")[0] if "=" in expr else expr
     desc = expr.split("=",1)[1] if "=" in expr else ""
@@ -184,13 +250,13 @@ def _skill_create(expr):
 
 # ── session ──
 
-def _cmd_session(args):
+def _cmd_session(args) -> None:
     if not args or args[0] == "list": return _session_list()
     if args[0] == "view" and len(args) >= 2: return _session_view(args[1])
     print("用法: dong session [list] [view id]")
 
 
-def _session_list():
+def _session_list() -> None:
     from dong_ai.ceo_memory import CEOMemory
     sessions = CEOMemory().session_list(limit=20)
     if not sessions: print("无会话"); return
@@ -198,7 +264,7 @@ def _session_list():
     for s in sessions: print(f"  {s['id']:<30} {s.get('title',''):<20} msgs:{s.get('msgs',0)}  {s.get('time','')[:16]}")
 
 
-def _session_view(sid):
+def _session_view(sid) -> None:
     from dong_ai.ceo_memory import CEOMemory
     data = CEOMemory().session_load(sid)
     msgs = data.get("messages", [])
@@ -208,13 +274,57 @@ def _session_view(sid):
         print(f"  {icon} [{m['role']}] {m['content'][:200]}")
 
 
+# ── plugin ──
+
+def _cmd_plugin(args) -> None:
+    """插件管理"""
+    from dong_ai.plugin_registry import list_plugins, search_registry, install_plugin, remove_plugin
+    if not args or args[0] == "list":
+        plugins = list_plugins()
+        if plugins:
+            print(f"插件 ({len(plugins)}):")
+            for p in plugins:
+                status_icon = "🔌" if p["status"] == "installed" else "📦"
+                env_hint = " 🔑" if p.get("env") else ""
+                print(f"  {status_icon} {p['name']:<24} {p['status']:<8} {p['command']} {' '.join(p.get('args',[]))[:40]}{env_hint}")
+        else:
+            print("未安装 MCP 插件。用 dong plugin search 查看可用插件")
+            print("  dong plugin install <name>  # 安装")
+        return
+    if args[0] == "search":
+        query = " ".join(args[1:]) if len(args) > 1 else ""
+        results = search_registry(query)
+        if results:
+            print(f"插件注册表 ({len(results)}):")
+            print()
+            for r in results:
+                tags = ", ".join(r.get("tags", []))
+                print(f"  {r['id']:<24} {r['name']}")
+                print(f"  {'':24} {r['description'][:80]}")
+                print(f"  {'':24} 命令: {r['command']} {' '.join(r['args'][:3])}...")
+                if r.get("env"):
+                    print(f"  {'':24} 需要环境变量: {', '.join(r['env'].keys())}")
+                print()
+        else:
+            print(f"未找到匹配: {query}" if query else "注册表为空")
+        return
+    if args[0] == "install" and len(args) >= 2:
+        install_plugin(args[1])
+        return
+    if args[0] == "remove" and len(args) >= 2:
+        remove_plugin(args[1])
+        return
+    print("用法: dong plugin [list|search|install <name>|remove <name>]")
+    print("       dong plugin search [关键词]  # 搜索注册表")
+
+
 # ── mcp ──
 
-def _cmd_mcp(args):
+def _cmd_mcp(args) -> None:
     return _mcp_discover(None)
 
 
-def _mcp_discover(_server=None):
+def _mcp_discover(_server=None) -> None:
     import json
     servers = []
     for p in [Path.home()/".cursor"/"mcp.json", Path.cwd()/".mcp.json"]:
@@ -261,7 +371,7 @@ def _mcp_discover(_server=None):
 
 # ── cron ──
 
-def _cmd_cron(args):
+def _cmd_cron(args) -> None:
     if not args or args[0] == "list": from dong_ai.cron import list_tasks; list_tasks(); return
     if args[0] == "add":
         name="未命名"; cmd=""; interval="1h"
@@ -284,7 +394,7 @@ def _cmd_cron(args):
 
 # ── webhook ──
 
-def _cmd_webhook(args):
+def _cmd_webhook(args) -> None:
     from dong_ai.cron import CRON_FILE
     f = CRON_FILE.parent / "webhooks.json"
     if not args or args[0]=="list":
@@ -306,7 +416,7 @@ def _cmd_webhook(args):
 # graph — 图记忆管理
 # ═══════════════════════════════════════════════════════════
 
-def _cmd_graph(args):
+def _cmd_graph(args) -> None:
     """查看和管理图记忆"""
     from dong_ai.datastore import get_repo
     gr = get_repo("graph")
@@ -338,7 +448,7 @@ def _cmd_graph(args):
 # setup — 交互式配置向导
 # ═══════════════════════════════════════════════════════════
 
-def _cmd_setup():
+def _cmd_setup() -> None:
     """交互式配置向导——检测硬件、选模型、设上下文"""
     from dong_ai.model_pool import ModelPool, PROVIDERS
     from dong_ai.ceo_memory import CEOMemory
@@ -424,12 +534,12 @@ def _cmd_setup():
 # ═══════════════════════════════════════════════════════════
 # TUI / Server
 
-def _start_tui():
+def _start_tui() -> None:
     from dong_ai.tui import main as t
     t()
 
 
-def _start_server(args):
+def _start_server(args) -> None:
     try: import uvicorn
     except ImportError: print("需要: pip install 'dong-ai[server]'"); sys.exit(1)
     host, port = "0.0.0.0", 8648

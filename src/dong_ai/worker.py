@@ -4,12 +4,14 @@
 CEO 用 LLM 分析任务 → 动态生成需要的员工 → 他们自己干活 → 互相审查。
 
 HTTP 调用统一走 ModelPool（自动 failover）。"""
+from __future__ import annotations
+
 import json, os, re, subprocess
 from pathlib import Path
 
 
 class WorkerPool:
-    def __init__(self, project_dir: str, model_endpoint: str = None):
+    def __init__(self, project_dir: str, model_endpoint: str = None) -> None:
         self.project_dir = Path(project_dir)
         self.project_dir.mkdir(parents=True, exist_ok=True)
         self.model_endpoint = model_endpoint or ""
@@ -18,7 +20,7 @@ class WorkerPool:
         self.work_dir = self.project_dir / "work"
         self.work_dir.mkdir(parents=True, exist_ok=True)
 
-    def _llm_call(self, messages, system="", **kwargs):
+    def _llm_call(self, messages, system="", **kwargs) -> str:
         """统一 LLM 调用——走 ModelPool 自动 failover，失败时返回错误字符串"""
         from .model_pool import ModelPool
         max_tokens = kwargs.pop("max_tokens", 4096)
@@ -49,7 +51,7 @@ class WorkerPool:
         except Exception:
             return ""
 
-    def _index_task_output(self, task_id: str, files: list, interfaces: list, lessons: list):
+    def _index_task_output(self, task_id: str, files: list, interfaces: list, lessons: list) -> None:
         """任务完成后，将产出写入图记忆"""
         try:
             from .datastore import get_repo
@@ -154,7 +156,7 @@ class WorkerPool:
             break
         return result
 
-    def _stream(self, topic: str, msg: str):
+    def _stream(self, topic: str, msg: str) -> None:
         print(f"  [{topic}] {msg}")
 
     def _run_worker_self_healing(self, worker: dict, task_id: str, task_name: str, w_dir: Path, design: str, context: str) -> dict:

@@ -6,14 +6,26 @@ services:
     container_name: dong-ai
     ports:
       - "8648:8648"
-    volumes:
-      # 挂载 .env 文件提供 API keys
-      - ~/.hermes/.env:/root/.hermes/.env:ro
-      # 持久化数据
-      - dong-data:/root/.dong
+    env_file:
+      - .env
     environment:
-      - HOME=/root
+      - DONG_API_KEY=${DONG_API_KEY:-}
+      - DONG_WEBHOOK_TOKEN=${DONG_WEBHOOK_TOKEN:-}
+    volumes:
+      - dong-data:/home/dong/.dong       # 持久化数据
+      - ./docker/hermes:/home/dong/.hermes:ro  # Hermes 配置（只读挂载）
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; r=urllib.request.urlopen('http://localhost:8648/health'); assert r.status == 200"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   dong-data:

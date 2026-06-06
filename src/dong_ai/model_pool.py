@@ -9,6 +9,7 @@ HTTP 调用统一委托给 llm.py 的 OpenAICompatibleClient。
   pool.call(prompt)    → 自动 failover 调用
   pool.call_stream()   → 流式输出
 """
+from __future__ import annotations
 
 import os, json, time
 from pathlib import Path
@@ -166,7 +167,7 @@ PROVIDERS = {
 class ModelPool:
     """模型池 — 自动探测可用 provider，故障切换"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache = None
         self._last_usage = {"prompt": 0, "completion": 0, "total": 0}
         self._total_usage = {"prompt": 0, "completion": 0, "total": 0}
@@ -175,10 +176,10 @@ class ModelPool:
     def get_usage(self) -> dict:
         return dict(self._total_usage)
 
-    def reset_usage(self):
+    def reset_usage(self) -> None:
         self._total_usage = {"prompt": 0, "completion": 0, "total": 0}
 
-    def _load_env(self):
+    def _load_env(self) -> None:
         """从 .hermes/.env 加载环境变量"""
         env_paths = [
             Path.home() / ".hermes" / ".env",
@@ -291,11 +292,6 @@ class ModelPool:
                                                  max_tokens=max_tokens,
                                                  temperature=temperature):
                     yield token
-                # 从 client 读取累积 usage
-                for k in total_usage:
-                    total_usage[k] = client._usage_total.get(k, 0) - sum(
-                        v for k2, v in self._total_usage.items() if k2 == k
-                    ) if False else client._usage_total.get(k, 0)
                 self._last_usage = dict(client._usage_total)
                 for k in self._last_usage:
                     self._total_usage[k] += self._last_usage[k]
