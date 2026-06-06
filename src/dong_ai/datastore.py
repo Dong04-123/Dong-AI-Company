@@ -335,7 +335,8 @@ class GraphRepository:
         related = set()
         related.add(node_name)
         current = {node_name}
-        for _ in range(depth):
+        levels = [{node_name}]
+        for d in range(depth):
             if not current:
                 break
             placeholders = ",".join("?" for _ in current)
@@ -348,14 +349,32 @@ class GraphRepository:
                 found.add(r[1])
             current = found - related
             related.update(current)
+            if current:
+                levels.append(current)
         related.discard(node_name)
-        if not related:
-            return []
-        placeholders = ",".join("?" for _ in related)
-        cur = self.c.execute(
-            f"SELECT node_name, node_type, file_path, signature FROM codegraph WHERE project_id=? AND node_name IN ({placeholders}) LIMIT 20",
-            (project_id, *related))
-        return [dict(zip(["name", "type", "file", "signature"], r)) for r in cur.fetchall()]
+
+        result = []
+        seen = set()
+        for level_idx, level in enumerate(levels[1:], 1):
+            if not level:
+                continue
+            placeholders = ",".join("?" for _ in level)
+            cur = self.c.execute(
+                f"SELECT node_name, node_type, file_path, signature FROM codegraph WHERE project_id=? AND node_name IN ({placeholders}) LIMIT 20",
+                (project_id, *level))
+            for r in cur.fetchall():
+                if r[0] not in seen:
+                    seen.add(r[0])
+                    node = {"name": r[0], "type": r[2], "file": r[2], "signature": r[3], "depth": level_idx}
+                    result.append(node)
+
+        # 计算影响分
+        direct = sum(1 for n in result if n.get("depth") == 1)
+        indirect = sum(1 for n in result if n.get("depth", 0) > 1)
+        total = len(result)
+        risk = min(100, direct * 25 + indirect * 10) if total > 0 else 0
+
+        return {"nodes": result, "direct": direct, "indirect": indirect, "total": total, "risk": risk}
 
     # ── 查询 ──
 
@@ -440,10 +459,10 @@ class GraphRepository:
                             parts.append(f"  · {m['name']} ({m['type']}) in {m['file']}: {m.get('signature','')[:80]}")
                         # 图遍历：自动查找相关依赖
                         for m in matches[:3]:
-                            related = self.traverse(project_id, m["name"], depth=1)
-                            if related:
-                                parts.append(f"  └─ 影响面 ({len(related)} 个相关符号):")
-                                for r in related[:5]:
+                            trav = self.traverse(project_id, m["name"], depth=1)
+                            if trav["nodes"]:
+                                parts.append(f"  └─ 影响面 ({trav['total']} 个, 风险 {trav['risk']}%):")
+                                for r in trav["nodes"][:5]:
                                     parts.append(f"      {r['name']} ({r['type']})")
         deps = self.get_deps(project_id)
         if deps:
