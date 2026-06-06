@@ -30,6 +30,21 @@ dong make "a quarterly market analysis"
 
 ---
 
+## See it in action (no API key required)
+
+[![asciicast](https://asciinema.org/a/l0Hobg20kKMgSdx5.svg)](https://asciinema.org/a/l0Hobg20kKMgSdx5)
+
+```bash
+pip install dong-ai
+dong demo
+```
+
+`dong demo` creates two fake projects in an isolated local SQLite database — no API
+key, no network calls — and shows how graph memory enables cross-project search,
+symbol drill-down, dependency impact analysis, and session resume.
+
+---
+
 ## The Problem
 
 Every AI agent works in a vacuum. Close a conversation, lose the context. Start a new

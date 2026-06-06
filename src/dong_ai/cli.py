@@ -207,10 +207,11 @@ def main() -> None:
     if cmd == "quick": return _cmd_quick(args[1:])
     if cmd == "debug": return _cmd_debug(args[1:])
     if cmd == "company": return _cmd_company(args[1:])
+    if cmd == "demo": from .demo import _cmd_demo; return _cmd_demo()
     if cmd in ("make", "vision"): return _cmd_make(args)
     if cmd == "gateway": return _cmd_gateway(args[1:])
     print(f"{T('unknown')}: {cmd}")
-    print(f"{T('available')}: chat, run, serve, detect, config, skill, session, mcp, cron, webhook, setup, version")
+    print(f"{T('available')}: demo, chat, run, serve, detect, config, skill, session, mcp, cron, webhook, setup, version")
     sys.exit(1)
 
 
