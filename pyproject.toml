@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dong-ai"
+version = "0.1.0"
+description = "Dong AI Company — 多智能体 AI 公司框架"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Dong AI", email = "dong@dong-ai.dev"},
+]
+keywords = ["ai", "agent", "multi-agent", "llm", "framework"]
+
+[project.urls]
+Homepage = "https://github.com/nousresearch/dong-ai"
+Source = "https://github.com/nousresearch/dong-ai"
+
+[project.optional-dependencies]
+server = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
+all = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "ddgs>=0.5",
+]
+
+[project.scripts]
+dong = "dong_ai.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["dong_ai*"]

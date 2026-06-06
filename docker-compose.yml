@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  dong-api:
+    build: .
+    container_name: dong-ai
+    ports:
+      - "8648:8648"
+    volumes:
+      # 挂载 .env 文件提供 API keys
+      - ~/.hermes/.env:/root/.hermes/.env:ro
+      # 持久化数据
+      - dong-data:/root/.dong
+    environment:
+      - HOME=/root
+    restart: unless-stopped
+
+volumes:
+  dong-data:
