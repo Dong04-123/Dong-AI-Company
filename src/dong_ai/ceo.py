@@ -21,14 +21,14 @@ log = get_logger("ceo")
 class CEO:
     """CEO — 项目全流程协调器"""
 
-    def __init__(self, project_dir: str = None, design_engine=None, llm_client=None):
+    def __init__(self, project_dir: str = None, design_engine=None,
+                 llm_client=None, experience_engine=None):
         self.project_dir = Path(project_dir or Path.home() / ".dong" / "projects" / "current")
         self.project_dir.mkdir(parents=True, exist_ok=True)
 
         if llm_client is not None:
             self.llm = llm_client
         else:
-            # 通过 ModelPool 自动发现可用模型
             from .model_pool import ModelPool
             from .llm import LLMConfig
             pool = ModelPool()
@@ -44,6 +44,7 @@ class CEO:
             self.llm = create_client(cfg)
         self.ds = get_repo("project")
         self.design_engine = design_engine or DesignEngine(self.llm, self.ds)
+        self.experience_engine = experience_engine
 
         self.plan = {}
         self.plan_path = self.project_dir / "plan.json"
@@ -114,11 +115,24 @@ class CEO:
             except Exception:
                 pass
 
+            # 加载历史经验
+            experience_context = ""
+            if self.experience_engine:
+                try:
+                    experience_context = self.experience_engine.recall(
+                        user_request, project_type)
+                    if experience_context:
+                        print(f"  📖 加载 {experience_context.count('###')} 条历史经验")
+                except Exception:
+                    pass
+
             # 设计阶段
             print("\n  📋 设计阶段")
             enriched_request = user_request
             if skill_context:
                 enriched_request = f"{user_request}\n\n{skill_context}"
+            if experience_context:
+                enriched_request = f"{enriched_request}\n\n{experience_context}"
             design_result = self.design_engine.design(enriched_request)
             print(f"  ✅ 设计完成，评分: {design_result['score']:.1f}")
             self._requirements = design_result.get("requirements", [])
@@ -185,6 +199,24 @@ class CEO:
         report = self._generate_report()
         self.report_path.write_text(report, encoding="utf-8")
         print(f"\n  📋 项目完成 | 报告: {self.report_path}")
+
+        # 复盘 → 经验固化
+        if self.experience_engine:
+            try:
+                scores = []
+                for p in self.plan.get("phases", []):
+                    pname = p.get("name", "")
+                    decs = self.ds.get_decisions(f"phase_{pname}_board")
+                    if decs:
+                        scores.append(decs[-1].get("score", 7.0))
+                path = self.experience_engine.debrief(
+                    project_type, user_request, self._design,
+                    self.plan.get("phases", []), scores or [7.0],
+                    report, self._requirements,
+                )
+                print(f"  📖 经验已存档 | {Path(path).name}")
+            except Exception as e:
+                print(f"  ⚠️ 复盘失败: {e}")
 
     # ── 设计 → 计划 ──
 
