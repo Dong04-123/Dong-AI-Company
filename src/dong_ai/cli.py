@@ -706,8 +706,9 @@ def _cmd_setup() -> None:
     if len(available) > 10:
         print(f"┊    ... 共 {len(available)} 个")
 
-    model_choice = input("┊  选择主模型编号 (默认 1): ").strip()
-    if model_choice and model_choice.isdigit():
+    model_choice = input("┊  选择主模型编号 (默认 1): ").strip() or "1"
+    sel = None
+    if model_choice.isdigit():
         idx = int(model_choice) - 1
         if 0 <= idx < len(available):
             sel = available[idx]
@@ -734,6 +735,19 @@ def _cmd_setup() -> None:
                 # 设到当前环境
                 os.environ[env_key_name] = new_key
                 print(f"┊  ✅ {sel['name']} 已配置")
+    # 5. 上下文配置
+    print("┊")
+    print("┊  📋 上下文窗口配置（输入数字，直接回车使用推荐值）:")
+    ceo_ctx = input(f"┊    CEO 上下文 (推荐 64000): ").strip()
+    if ceo_ctx.isdigit(): mem.config_set("ceo_context", ceo_ctx)
+    worker_ctx = input(f"┊    工人上下文 (推荐 32000): ").strip()
+    if worker_ctx.isdigit(): mem.config_set("worker_context", worker_ctx)
+    ceo_tokens = input(f"┊    CEO 最大回复 (推荐 8192): ").strip()
+    if ceo_tokens.isdigit(): mem.config_set("ceo_max_tokens", ceo_tokens)
+    worker_tokens = input(f"┊    工人最大回复 (推荐 4096): ").strip()
+    if worker_tokens.isdigit(): mem.config_set("worker_max_tokens", worker_tokens)
+
+    # 6. 完成
     print("┊")
     print("┊  ✅ 配置已保存")
     print("┊")
