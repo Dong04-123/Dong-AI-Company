@@ -125,7 +125,6 @@ def main() -> None:
     cmd = args[0] if args else ""
 
     if not cmd or cmd in ("-h", "--help", "help"):
-        # 检测是否已配置
         has_key = False
         try:
             from .model_pool import ModelPool
@@ -138,32 +137,32 @@ def main() -> None:
             print(f"""
 ╭─ {C.B}Dong AI Company v{__import__('dong_ai').__version__}{C.R} ───────────────────╮
 ┊                                                                              ┊
-┊  {C.P}🚀 把 AI 公司装进命令行{C.R}                                                 ┊
+┊  {C.P}🏢 你的 AI 公司 — 什么领域都能做{C.R}                                      ┊
 ┊                                                                              ┊
-┊  {C.B}dong run "需求"      启动一个项目                                          ┊
-┊  {C.B}dong quick "任务"    快速模式（跳过CEO管线）                                ┊
-┊  {C.B}dong edit <file>    修改文件（带diff预览）                                 ┊
-┊  {C.B}dong analyze <file> 分析代码                                              ┊
-┊  {C.B}dong company start  启动7x24后台运营                                      ┊
+┊  {C.B}dong make [需求]{C.R}    自学任何领域，研究→提案→执行                        ┊
+┊    例: dong make "一份新能源车行业报告"                                          ┊
+┊    例: dong make "一部3章科幻漫剧" --auto                                       ┊
+┊    例: dong make "一个SaaS商业计划书"                                           ┊
 ┊                                                                              ┊
-┊  {C.D}管理: config | detect | check | plugin | key{C.R}                           ┊
+┊  {C.B}dong run [任务]{C.R}    完整公司管线（辩论+专家+评审）                       ┊
+┊  {C.B}dong quick [任务]{C.R}  轻量执行，不经过董事会                               ┊
+┊  {C.B}dong company start{C.R} 启动7x24后台，自动盯盘+日报+备份                    ┊
+┊                                                                              ┊
+┊  {C.D}管理: config | gateway | check | knowledge{C.R}                               ┊
 ╰──────────────────────────────────────────────────────────────────────────────╯""")
         else:
             print(f"""
 ╭─ {C.B}Dong AI Company v{__import__('dong_ai').__version__}{C.R} ───────────────────╮
 ┊                                                                              ┊
-┊  {C.P}🚀 把 AI 公司装进命令行{C.R}                                                 ┊
+┊  {C.P}🏢 你的 AI 公司 — 什么领域都能做{C.R}                                      ┊
 ┊                                                                              ┊
 ┊  需要一个大模型 API Key 来启动（行业标配）:                                  ┊
-┊                                                                              ┊
 ┊  {C.B}dong setup{C.R}    交互式配置（支持20种模型）                                 ┊
 ┊                                                                              ┊
 ┊  {C.D}免费选项:{C.R}                                                                ┊
-┊    1. DeepSeek — 注册送500万token → platform.deepseek.com                     ┊
+┊    1. DeepSeek — 平台注册送500万token → platform.deepseek.com                   ┊
 ┊    2. Ollama  — 本地运行，完全免费 → ollama.ai                                ┊
-┊    3. OpenAI  — 注册送5美元 → platform.openai.com                             ┊
-┊                                                                              ┊
-┊  {C.D}管理: check | detect | plugin{C.R}                                          ┊
+┊    3. OpenAI  — 送5美元 → platform.openai.com                                 ┊
 ╰──────────────────────────────────────────────────────────────────────────────╯""")
         return
 
