@@ -125,24 +125,45 @@ def main() -> None:
     cmd = args[0] if args else ""
 
     if not cmd or cmd in ("-h", "--help", "help"):
-        print(f"""
+        # 检测是否已配置
+        has_key = False
+        try:
+            from .model_pool import ModelPool
+            pool = ModelPool()
+            has_key = any(p.get("api_key") for p in pool.available())
+        except Exception:
+            pass
+
+        if has_key:
+            print(f"""
 ╭─ {C.B}Dong AI Company v{__import__('dong_ai').__version__}{C.R} ───────────────────╮
 ┊                                                                              ┊
 ┊  {C.P}🚀 把 AI 公司装进命令行{C.R}                                                 ┊
 ┊                                                                              ┊
-┊  {C.GN}🚀 快速开始 (30秒){C.R}                                                      ┊
+┊  {C.B}dong run "需求"      启动一个项目                                          ┊
+┊  {C.B}dong quick "任务"    快速模式（跳过CEO管线）                                ┊
+┊  {C.B}dong edit <file>    修改文件（带diff预览）                                 ┊
+┊  {C.B}dong analyze <file> 分析代码                                              ┊
+┊  {C.B}dong company start  启动7x24后台运营                                      ┊
 ┊                                                                              ┊
-┊    1. {C.B}dong setup{C.R}      交互式配置 (API Key / 本地模型)                    ┊
-┊    2. {C.B}dong check{C.R}      检测配置是否可用                                   ┊
-┊    3. {C.B}dong run \"写个CLI\"{C.R}  一键启动 AI 公司                                ┊
+┊  {C.D}管理: config | detect | check | plugin | key{C.R}                           ┊
+╰──────────────────────────────────────────────────────────────────────────────╯""")
+        else:
+            print(f"""
+╭─ {C.B}Dong AI Company v{__import__('dong_ai').__version__}{C.R} ───────────────────╮
 ┊                                                                              ┊
-┊  {C.D}常用命令:{C.R}                                                               ┊
-┊    {C.B}dong chat{C.R}      对话模式     {C.B}dong serve{C.R}    启动 API 服务器        ┊
-┊    {C.B}dong config{C.R}    查看配置     {C.B}dong plugin{C.R}    安装插件             ┊
-┊    {C.B}dong detect{C.R}    系统检测     {C.B}dong update{C.R}   升级到最新版本        ┊
+┊  {C.P}🚀 把 AI 公司装进命令行{C.R}                                                 ┊
 ┊                                                                              ┊
-┊  {C.D}📖 文档: https://github.com/Dong04-123/Dong-AI-Company{C.R}                 ┊
-┊  {C.D}📦 PyPI: pip install dong-ai[all]{C.R}                                     ┊
+┊  需要一个大模型 API Key 来启动（行业标配）:                                  ┊
+┊                                                                              ┊
+┊  {C.B}dong setup{C.R}    交互式配置（支持20种模型）                                 ┊
+┊                                                                              ┊
+┊  {C.D}免费选项:{C.R}                                                                ┊
+┊    1. DeepSeek — 注册送500万token → platform.deepseek.com                     ┊
+┊    2. Ollama  — 本地运行，完全免费 → ollama.ai                                ┊
+┊    3. OpenAI  — 注册送5美元 → platform.openai.com                             ┊
+┊                                                                              ┊
+┊  {C.D}管理: check | detect | plugin{C.R}                                          ┊
 ╰──────────────────────────────────────────────────────────────────────────────╯""")
         return
 
@@ -169,6 +190,20 @@ def main() -> None:
     if cmd in ("update", "upgrade"): return _cmd_update()
     if cmd in ("check", "doctor"): return _cmd_check()
     if cmd == "analyze": return _cmd_analyze(args[1:])
+
+    # API Key 检查
+    if cmd in ("run", "quick", "edit", "debug"):
+        try:
+            from .model_pool import ModelPool
+            pool = ModelPool()
+            has_key = any(p.get("api_key") for p in pool.available())
+            if not has_key:
+                print(f"  ❌ 未检测到 API Key")
+                print(f"  {C.B}dong setup{C.R}  交互式配置（支持20种模型）")
+                print(f"  {C.D}  免费选项: DeepSeek(500万token) | Ollama(本地免费) | OpenAI(5美元){C.R}")
+                return
+        except Exception:
+            pass
     if cmd == "edit": return _cmd_edit(args[1:])
     if cmd == "quick": return _cmd_quick(args[1:])
     if cmd == "debug": return _cmd_debug(args[1:])
