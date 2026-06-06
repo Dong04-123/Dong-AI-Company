@@ -188,5 +188,16 @@ MIT — free for personal, research, and commercial use. Attribution required.
 ---
 
 <div align="center">
-  <sub>Not a chatbot — your AI workforce.</sub>
+  <sub>Not a chatbot — your AI workforce.</sub><br>
+  <sub><a href="https://github.com/Dong04-123/Dong-AI-Company">Dong AI Company</a></sub>
 </div>
+
+---
+
+## Acknowledgements · 致谢
+
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — Inspired the skill system design. Dong AI scans `~/.hermes/skills/` for seamless integration with the Hermes ecosystem.
+- **[MCP Protocol](https://modelcontextprotocol.io)** — Open standard for AI tool interoperability.
+- **[OpenAI](https://openai.com)** — API format standard that Dong AI's server is compatible with.
+- **[llama.cpp](https://github.com/ggerganov/llama.cpp)** — Local model inference backend.
+- All 20+ model providers who make their APIs openly accessible.
