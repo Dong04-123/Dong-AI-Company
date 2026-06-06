@@ -22,29 +22,53 @@ _GATEWAY_FILE = Path.home() / ".dong" / "gateway.json"
 
 # 模型能力评分 (0-10)
 _MODEL_CAPABILITIES = {
-    # 速度
     "speed": {
-        "groq": 10, "deepseek": 8, "openai": 7, "together": 7,
-        "google": 7, "kimi": 6, "dashscope": 6, "glm": 6,
-        "xiaomi": 5, "minimax": 5, "xai": 6, "openrouter": 5,
-        "huggingface": 4, "anthropic": 6, "local": 9, "ollama": 8,
-        "custom": 5,
+        "deepseek-chat": 9, "deepseek-reasoner": 4,
+        "gpt-4o": 7, "gpt-4o-mini": 10,
+        "claude-sonnet-4": 5, "claude-haiku-3": 9,
+        "gemini-2.0-flash": 9, "gemini-2.0-pro": 5,
+        "llama-3.3-70b-versatile": 7, "llama-3.1-8b-instant": 10,
+        "grok-beta": 6, "grok-2": 5,
+        "qwen-plus": 7, "qwen-max": 5,
+        "glm-4-plus": 6, "glm-4-air": 8,
+        "moonshot-v1-8k": 8, "moonshot-v1-32k": 6,
+        "MiniMax-Text-01": 5,
+        "mimo-v2.5": 6, "mimo-v2.5-pro": 5,
+        "command-r-plus": 5,
+        "Meta-Llama-3.1-70B": 6, "Meta-Llama-3.1-8B": 9,
+        "Qwen3.6-35B-A3B-UD-IQ4_NL": 7, "qwen3.5:9b": 8,
     },
-    # 推理质量
     "quality": {
-        "anthropic": 9, "openai": 9, "deepseek": 8, "google": 8,
-        "xai": 7, "openrouter": 7, "groq": 6, "together": 6,
-        "kimi": 6, "dashscope": 6, "glm": 5, "xiaomi": 5,
-        "minimax": 5, "huggingface": 5, "local": 5, "ollama": 4,
-        "custom": 5,
+        "deepseek-chat": 8, "deepseek-reasoner": 9,
+        "gpt-4o": 9, "gpt-4o-mini": 7,
+        "claude-sonnet-4": 10, "claude-haiku-3": 8,
+        "gemini-2.0-flash": 7, "gemini-2.0-pro": 9,
+        "llama-3.3-70b-versatile": 7, "llama-3.1-8b-instant": 4,
+        "grok-beta": 7, "grok-2": 8,
+        "qwen-plus": 6, "qwen-max": 8,
+        "glm-4-plus": 6, "glm-4-air": 5,
+        "moonshot-v1-8k": 6, "moonshot-v1-32k": 6,
+        "MiniMax-Text-01": 5,
+        "mimo-v2.5": 5, "mimo-v2.5-pro": 6,
+        "command-r-plus": 6,
+        "Meta-Llama-3.1-70B": 6, "Meta-Llama-3.1-8B": 4,
+        "Qwen3.6-35B-A3B-UD-IQ4_NL": 6, "qwen3.5:9b": 5,
     },
-    # 上下文窗口 (MB tokens 估算)
     "context": {
-        "google": 10, "deepseek": 8, "anthropic": 8, "openai": 7,
-        "kimi": 7, "dashscope": 7, "glm": 6, "xiaomi": 6,
-        "xai": 5, "groq": 5, "together": 5, "minimax": 5,
-        "huggingface": 4, "openrouter": 6, "local": 4, "ollama": 3,
-        "custom": 5,
+        "deepseek-chat": 8, "deepseek-reasoner": 8,
+        "gpt-4o": 7, "gpt-4o-mini": 5,
+        "claude-sonnet-4": 9, "claude-haiku-3": 7,
+        "gemini-2.0-flash": 10, "gemini-2.0-pro": 10,
+        "llama-3.3-70b-versatile": 6, "llama-3.1-8b-instant": 5,
+        "grok-beta": 5, "grok-2": 5,
+        "qwen-plus": 7, "qwen-max": 7,
+        "glm-4-plus": 6, "glm-4-air": 5,
+        "moonshot-v1-8k": 4, "moonshot-v1-32k": 6,
+        "MiniMax-Text-01": 6,
+        "mimo-v2.5": 5, "mimo-v2.5-pro": 6,
+        "command-r-plus": 7,
+        "Meta-Llama-3.1-70B": 6, "Meta-Llama-3.1-8B": 5,
+        "Qwen3.6-35B-A3B-UD-IQ4_NL": 3, "qwen3.5:9b": 3,
     },
 }
 
@@ -70,14 +94,28 @@ def _save(data: dict):
     _GATEWAY_FILE.parent.mkdir(parents=True, exist_ok=True)
     _GATEWAY_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
-def _score_provider(pid: str, task_type: str) -> float:
-    """给 provider 打分：0-10，越高越适合该任务"""
+def _score_model(model_name: str, task_type: str) -> float:
+    """给单个模型打分"""
     profile = _TASK_PROFILES.get(task_type, _TASK_PROFILES["auto"])
     caps = _MODEL_CAPABILITIES
-    speed = caps["speed"].get(pid, 5) * profile["speed"]
-    quality = caps["quality"].get(pid, 5) * profile["quality"]
-    context = caps["context"].get(pid, 5) * profile["context"]
+    speed = caps["speed"].get(model_name, 5) * profile["speed"]
+    quality = caps["quality"].get(model_name, 5) * profile["quality"]
+    context = caps["context"].get(model_name, 5) * profile["context"]
     return speed + quality + context
+
+def _best_model_for_provider(provider_id: str, models: list, task_type: str) -> str:
+    """从 provider 的模型列表中找到最适合该任务的那个"""
+    scored = [(_score_model(m, task_type), m) for m in models]
+    scored.sort(key=lambda x: -x[0])
+    return scored[0][1]
+
+def _score_provider(pid: str, task_type: str) -> float:
+    """给 provider 打分（取其最佳模型分）"""
+    from .model_pool import PROVIDERS
+    models = PROVIDERS.get(pid, {}).get("models", [])
+    if not models:
+        return 0
+    return max(_score_model(m, task_type) for m in models)
 
 def list_providers() -> list[dict]:
     """列出所有 provider 及其状态"""
@@ -96,9 +134,9 @@ def list_providers() -> list[dict]:
             "models": info["models"],
             "priority": rank,
             "tier": tiers.get(pid, "auto"),
-            "speed": _MODEL_CAPABILITIES["speed"].get(pid, 5),
-            "quality": _MODEL_CAPABILITIES["quality"].get(pid, 5),
-            "context_score": _MODEL_CAPABILITIES["context"].get(pid, 5),
+            "speed": max(_MODEL_CAPABILITIES["speed"].get(m, 5) for m in info["models"]),
+            "quality": max(_MODEL_CAPABILITIES["quality"].get(m, 5) for m in info["models"]),
+            "context_score": max(_MODEL_CAPABILITIES["context"].get(m, 5) for m in info["models"]),
         })
     # 有 key 的排前面，有优先级的排最前
     result.sort(key=lambda p: (0 if p["has_key"] else 1, p["priority"]))
@@ -159,10 +197,12 @@ def resolve(task_type: str = "auto") -> dict | None:
     scored.sort(key=lambda x: -x[0])
 
     # Step 2: 返回最佳 (含 fallback: 如果第一个失败, 调用方可重试下一个)
-    return scored[0][1]
+    best = scored[0][1]
+    best_model = _best_model_for_provider(best["id"], PROVIDERS.get(best["id"], {}).get("models", []), task_type)
+    return {**best, "selected_model": best_model}
 
 def resolve_chain(task_type: str = "auto") -> list[dict]:
-    """返回完整 fallback 链 — 按评分排序的所有可用 provider"""
+    """返回完整 fallback 链 — 按评分排序的所有可用 (provider, model) 对"""
     from .model_pool import PROVIDERS
     all_providers = list_providers()
     available = [p for p in all_providers if p["has_key"]]
@@ -172,6 +212,7 @@ def resolve_chain(task_type: str = "auto") -> list[dict]:
     scored = []
     for p in available:
         score = _score_provider(p["id"], task_type)
-        scored.append((score, p))
+        model = _best_model_for_provider(p["id"], PROVIDERS.get(p["id"], {}).get("models", []), task_type)
+        scored.append((score, {**p, "selected_model": model}))
     scored.sort(key=lambda x: -x[0])
     return [p for _, p in scored]

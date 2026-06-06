@@ -766,6 +766,7 @@ def _cmd_make(args: list[str]) -> None:
 def _gateway_best_task(pid: str) -> str:
     """返回 provider 最适合的任务类型"""
     from .gateway import _TASK_PROFILES, _score_provider
+    from .model_pool import PROVIDERS
     best_task = "auto"
     best_score = -1
     for task in _TASK_PROFILES:
@@ -775,7 +776,7 @@ def _gateway_best_task(pid: str) -> str:
         if score > best_score:
             best_score = score
             best_task = task
-    labels = {"quick": "quick响应", "research": "研究分析", "draft": "生成创作", "analyze": "深度分析", "code": "代码生成"}
+    labels = {"quick": "快速响应", "research": "研究分析", "draft": "生成创作", "analyze": "深度分析", "code": "代码生成"}
     return labels.get(best_task, best_task)
 
 def _cmd_gateway(args: list[str]) -> None:
@@ -808,8 +809,9 @@ def _cmd_gateway(args: list[str]) -> None:
                 r = resolve(task)
                 chain = resolve_chain(task)
                 if r:
-                    names = [c["id"] for c in chain[:3]]
-                    print(f"    {task:<12} → {C.B}{r['id']}{C.R}  (fallback: {', '.join(names[1:])})")
+                    model = r.get("selected_model", r["models"][0])
+                    names = [f"{c['id']}({c.get('selected_model',c['models'][0])})" for c in chain[:3]]
+                    print(f"    {task:<12} → {C.B}{r['id']}/{model}{C.R}  (fallback: {', '.join(names[1:])})")
         return
     elif cmd == "set" and len(args) >= 2:
         set_priority(args[1])
