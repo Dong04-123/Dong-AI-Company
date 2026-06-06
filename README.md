@@ -6,6 +6,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Dong04-123/Dong-AI-Company/ci.yml?branch=main&label=CI)](.github/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-121%20passed-brightgreen)](tests/)
 [![Providers](https://img.shields.io/badge/providers-20%2B-orange)](src/dong_ai/model_pool.py)
 [![Context](https://img.shields.io/badge/context-256K%2B-purple)](#)
