@@ -208,6 +208,7 @@ def main() -> None:
     if cmd == "quick": return _cmd_quick(args[1:])
     if cmd == "debug": return _cmd_debug(args[1:])
     if cmd == "company": return _cmd_company(args[1:])
+    if cmd in ("make", "vision"): return _cmd_make(args)
     print(f"{T('unknown')}: {cmd}")
     print(f"{T('available')}: chat, run, serve, detect, config, skill, session, mcp, cron, webhook, setup, version")
     sys.exit(1)
@@ -731,6 +732,30 @@ def _cmd_setup() -> None:
     print("┊    dong serve     启动 API 服务")
     print("┊    dong config list  查看全部配置")
     print("╰──────────────────────────────────────────────────╯")
+
+
+def _cmd_make(args: list[str]) -> None:
+    """Self-directed making — AI company researches, proposes, executes any output"""
+    auto = "--auto" in args or "-a" in args
+    request = " ".join(a for a in args if not a.startswith("--"))
+
+    if not request:
+        print(f"  Usage: {C.B}dong make <what to make> [--auto]{C.R}")
+        print(f"\n  Examples:")
+        print(f"    {C.D}dong make \"一部3章科幻漫剧\"{C.R}")
+        print(f"    {C.D}dong make \"一份新能源车行业分析报告\"{C.R}")
+        print(f"    {C.D}dong make \"一个SaaS产品的商业计划书\" --auto{C.R}")
+        print(f"    {C.D}dong make \"一套API自动化测试方案\"{C.R}")
+        print(f"    {C.D}dong make \"一款独立游戏的GDD文档\"{C.R}")
+        print(f"    {C.D}dong make \"一份城市骑行路线的调研报告\"{C.R}")
+        return
+
+    from .vision import VisionPipeline
+    vp = VisionPipeline(request, auto=auto)
+    try:
+        vp.run()
+    except KeyboardInterrupt:
+        print(f"\n  Interrupted. State saved.")
 
 
 # ── update / upgrade ──
