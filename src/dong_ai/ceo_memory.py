@@ -33,18 +33,18 @@ class CEOMemory:
 
     MODE_PRESETS = {
         "api": {
-            "ceo_context": "64000",
-            "ceo_max_tokens": "8192",
-            "worker_context": "32000",
-            "worker_max_tokens": "4096",
-            "description": "云端模型，大窗口，宽松压缩",
+            "ceo_context": "256000",
+            "ceo_max_tokens": "16384",
+            "worker_context": "128000",
+            "worker_max_tokens": "8192",
+            "description": "API 模式，256K 大窗口",
         },
         "local": {
             "ceo_context": "64000",
             "ceo_max_tokens": "8192",
             "worker_context": "64000",
             "worker_max_tokens": "4096",
-            "description": "本地64K，宽松压缩",
+            "description": "本地 64K",
         },
     }
 
@@ -170,23 +170,28 @@ class CEOMemory:
         # 1. 默认值（最低优先级）
         config = dict(self.CONFIG_DEFAULTS)
 
-        # 2. 模式预设（次低优先级）
-        mode = config.get("mode", "auto")
+        # 2. 用户配置文件（读一次获取 mode）
+        user_cfg = {}
+        if cfg_path.exists():
+            try:
+                cfg.read(str(cfg_path))
+                for section in cfg.sections():
+                    for key, val in cfg[section].items():
+                        user_cfg[key] = val
+            except:
+                pass
+
+        # 3. 模式预设（基于用户设置的 mode）
+        mode = user_cfg.get("mode", config.get("mode", "auto"))
         resolved = self._resolve_mode(mode)
         if resolved and resolved in self.MODE_PRESETS:
             for k, v in self.MODE_PRESETS[resolved].items():
                 if k != "description":
                     config[k] = v
 
-        # 3. 用户配置文件（最高优先级）
-        if cfg_path.exists():
-            try:
-                cfg.read(str(cfg_path))
-                for section in cfg.sections():
-                    for key, val in cfg[section].items():
-                        config[key] = val
-            except:
-                pass
+        # 4. 用户配置覆盖（最高优先级）
+        for k, v in user_cfg.items():
+            config[k] = v
 
         return config
 
