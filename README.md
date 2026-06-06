@@ -194,10 +194,7 @@ MIT — free for personal, research, and commercial use. Attribution required.
 
 ---
 
-## Acknowledgements · 致谢
+## Acknowledgements
 
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — Inspired the skill system design. Dong AI scans `~/.hermes/skills/` for seamless integration with the Hermes ecosystem.
-- **[MCP Protocol](https://modelcontextprotocol.io)** — Open standard for AI tool interoperability.
-- **[OpenAI](https://openai.com)** — API format standard that Dong AI's server is compatible with.
-- **[llama.cpp](https://github.com/ggerganov/llama.cpp)** — Local model inference backend.
-- All 20+ model providers who make their APIs openly accessible.
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — Dong AI scans `~/.hermes/skills/` for skill integration.
+- **[MCP Protocol](https://modelcontextprotocol.io)** — Dong AI implements the MCP client for tool discovery and invocation.
