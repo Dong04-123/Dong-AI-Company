@@ -152,7 +152,10 @@ class CEO:
                 if experience_context:
                     enriched_request = f"{enriched_request}\n\n{experience_context}"
                 design_result = self.design_engine.design(enriched_request) if pre_diff >= 3 else self.design_engine.design_medium(enriched_request)
-                print(f"  ✅ 设计完成，评分: {design_result['score']:.1f}")
+                try:
+                    print(f"  ✅ 设计完成，评分: {float(design_result['score']):.1f}")
+                except (TypeError, ValueError):
+                    print(f"  ✅ 设计完成")
                 self._requirements = design_result.get("requirements", [])
                 if self._requirements:
                     print(f"  📋 拆解为 {len(self._requirements)} 条可验证需求")
