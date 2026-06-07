@@ -70,7 +70,7 @@ class DesignEngine:
             ], system="严格的评审委员。8分以上已经很优秀。", max_tokens=200, temperature=0.1)
 
             try:
-                score = float(re.search(r'总分[：:]\\s*(\\d+\\.?\\d*)', score_str.text).group(1))
+                score = float(re.search(r'总分[：:]\s*(\d+\.?\d*)', score_str.text).group(1))
             except:
                 score = 7.0
 

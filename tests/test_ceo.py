@@ -439,13 +439,15 @@ class TestRunFlow:
                 "interfaces": [], "lessons": [],
             })
         ))
+        sys.modules["dong_ai.worker"] = fake_mod
         sys.modules["worker"] = fake_mod
         try:
             ceo.run("Build a service")
         finally:
             sys.modules.pop("worker", None)
+            sys.modules.pop("dong_ai.worker", None)
 
-        design_mock.design.assert_called_once()
+        design_mock.design_medium.assert_called_once()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -476,11 +478,13 @@ class TestErrorHandling:
                 "interfaces": [], "lessons": [],
             })
         ))
+        sys.modules["dong_ai.worker"] = fake_mod
         sys.modules["worker"] = fake_mod
         try:
             ceo.run("Do something")
         finally:
             sys.modules.pop("worker", None)
+            sys.modules.pop("dong_ai.worker", None)
 
         assert ceo.report_path.exists()
 

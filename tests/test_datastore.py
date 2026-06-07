@@ -417,4 +417,4 @@ class TestConfigRepo:
         if cfg_path.exists():
             cfg_path.unlink()
         cfg = mem.config_load()
-        assert cfg["context_length"] == "32768"
+        assert cfg["context_length"] == "200000"
