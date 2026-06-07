@@ -359,11 +359,18 @@ class WorkerPool:
         new_content = blocks[0] if blocks else ""
 
         if new_content and new_content != current and len(new_content) > 100:
-            # Safety: output should be at least 50% of original length
+            # Safety: output length should be at least 50% of original
             if len(new_content) < len(current) * 0.5 and len(current) > 1000:
                 print(f"        {name}: output too short ({len(new_content)} vs {len(current)} chars), skipped")
                 return {"status": "ok", "files": [], "interfaces": [], "lessons": [],
                         "review_notes": f"output truncated: {len(new_content)} vs {len(current)}"}
+            # Safety: output should have similar number of functions
+            orig_funcs = current.count("def ")
+            new_funcs = new_content.count("def ")
+            if orig_funcs > 5 and new_funcs < orig_funcs * 0.7:
+                print(f"        {name}: too few functions ({new_funcs} vs {orig_funcs}), skipped")
+                return {"status": "ok", "files": [], "interfaces": [], "lessons": [],
+                        "review_notes": f"functions dropped: {new_funcs} vs {orig_funcs}"}
             p = _Path(target)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(new_content, encoding="utf-8")
