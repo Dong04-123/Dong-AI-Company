@@ -90,7 +90,15 @@ class WorkerPool:
         }
 
         for round_num in range(1, 4):
-            workers = self._generate_workers(task_name, design, context, f"第{round_num}轮", difficulty)
+            if difficulty == 1 and round_num == 1:
+                # Fast path: skip LLM worker generation, go straight to edit
+                workers = [{"id": "editor", "name": "Editor",
+                           "role": "修改文件", "mission": task_name,
+                           "budget": 64000, "tools": ["read_file", "write_file"],
+                           "rules": ["精确修改", "保持原有风格"],
+                           "output_format": "修改后的完整文件"}]
+            else:
+                workers = self._generate_workers(task_name, design, context, f"第{round_num}轮", difficulty)
             self._stream("👥 员工", f"{' + '.join(w['name'] for w in workers)}")
 
             worker_results = {}
