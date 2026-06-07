@@ -157,28 +157,53 @@ class CEO:
                 except Exception:
                     pass
 
+            # 难度预评估 — 快速判断是否需要完整设计流程
+            print(f"  📋 评估任务难度...")
+            try:
+                diff_resp = self.llm.chat([{"role": "user", "content": (
+                    f"任务：{user_request[:300]}\n\n"
+                    f"评估难度（1-3）：\n"
+                    f"1 = 简单改动（替换文字、修bug、单文件修改）\n"
+                    f"2 = 中等（新增功能、多文件修改、需要设计）\n"
+                    f"3 = 复杂（新项目、多系统、需要架构设计）\n"
+                    f"只输出数字 1/2/3。"
+                )}], system="你是一个项目评估专家。", max_tokens=10, temperature=0.1)
+                pre_diff = int(diff_resp.text.strip())
+            except Exception:
+                pre_diff = 2
+            self._difficulty = pre_diff
+            print(f"  📋 难度等级: {pre_diff}")
+
             # 设计阶段
-            print("\n  📋 设计阶段")
-            enriched_request = user_request
-            if skill_context:
-                enriched_request = f"{user_request}\n\n{skill_context}"
-            if experience_context:
-                enriched_request = f"{enriched_request}\n\n{experience_context}"
-            design_result = self.design_engine.design(enriched_request)
-            print(f"  ✅ 设计完成，评分: {design_result['score']:.1f}")
-            self._requirements = design_result.get("requirements", [])
-            if self._requirements:
-                print(f"  📋 拆解为 {len(self._requirements)} 条可验证需求")
-                for r in self._requirements[:5]:
-                    print(f"     [{r['id']}] {r['desc'][:50]}")
-                if len(self._requirements) > 5:
-                    print(f"     ... 共 {len(self._requirements)} 条")
-            self.ds.add_decision("design_final", design_result["design"][:500])
-            self._design = design_result["design"]
+            if pre_diff >= 2:
+                print(f"  📋 设计阶段")
+                enriched_request = user_request
+                if skill_context:
+                    enriched_request = f"{user_request}\n\n{skill_context}"
+                if experience_context:
+                    enriched_request = f"{enriched_request}\n\n{experience_context}"
+                design_result = self.design_engine.design(enriched_request)
+                print(f"  ✅ 设计完成，评分: {design_result['score']:.1f}")
+                self._requirements = design_result.get("requirements", [])
+                if self._requirements:
+                    print(f"  📋 拆解为 {len(self._requirements)} 条可验证需求")
+                    for r in self._requirements[:5]:
+                        print(f"     [{r['id']}] {r['desc'][:50]}")
+                    if len(self._requirements) > 5:
+                        print(f"     ... 共 {len(self._requirements)} 条")
+                self.ds.add_decision("design_final", design_result["design"][:500])
+                self._design = design_result["design"]
+                design_text = design_result["design"]
+            else:
+                print(f"  📋 简单任务，跳过完整设计流程")
+                self._design = user_request
+                self._requirements = []
+                design_text = user_request
+                self.ds.add_decision("design_skip", f"简单任务，直接执行: {user_request[:100]}")
 
             # 根据项目类型生成管线阶段
-            phases = self._build_pipeline(project_type, design_result["design"])
-            self.plan = {"project_name": design_result.get("project_name", "未知"), "phases": phases}
+            phases = self._build_pipeline(project_type, design_text)
+            self.plan = {"project_name": user_request[:50], "phases": phases}
             (self.plan_path).write_text(json.dumps(self.plan, ensure_ascii=False, indent=2))
             start_idx = 0
 
