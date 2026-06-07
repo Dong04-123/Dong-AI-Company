@@ -207,7 +207,7 @@ class WorkerPool:
             '    "name": "中文花名（2-4字，有互联网风格幽默感，如: 数据猎手/逻辑判官/代码浪人）",\n'
             '    "role": "一句话描述角色",\n'
             '    "mission": "这个员工的具体任务",\n'
-            '    "budget": 32768,\n'
+            '    "budget": 64000,\n'
             '    "tools": ["web_search", "opencode", "codegraph", "pytest"],\n'
             '    "rules": ["规则1", "规则2"],\n'
             '    "output_format": "输出的格式要求"\n'

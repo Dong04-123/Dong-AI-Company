@@ -82,10 +82,10 @@ class CEO:
             full_cfg = mem.config_load()
             self._mode = full_cfg.get("mode", "auto")
             self._mode_config = {
-                "ceo_context": int(full_cfg.get("ceo_context", full_cfg.get("context_length", 64000))),
-                "ceo_max_tokens": int(full_cfg.get("ceo_max_tokens", full_cfg.get("max_response", 8192))),
-                "worker_context": int(full_cfg.get("worker_context", 16000)),
-                "worker_max_tokens": int(full_cfg.get("worker_max_tokens", 4096)),
+                "ceo_context": int(full_cfg.get("ceo_context", full_cfg.get("context_length", 200000))),
+                "ceo_max_tokens": int(full_cfg.get("ceo_max_tokens", full_cfg.get("max_response", 16384))),
+                "worker_context": int(full_cfg.get("worker_context", 64000)),
+                "worker_max_tokens": int(full_cfg.get("worker_max_tokens", 8192)),
             }
         except Exception:
             self._mode = "auto"

@@ -22,14 +22,14 @@ class CEOMemory:
     TRIVIAL = {'hi','hello','嗨','你好','test','ok','好的','谢谢','thanks','👍','😂'}
 
     CONFIG_DEFAULTS = {
-        'context_length': '32768', 'max_response': '8192',
+        'context_length': '200000', 'max_response': '16384',
         'temperature': '0.7', 'auto_compress_at': '20',
         'keep_recent': '15', 'inject_history': 'true',
         'max_facts': '50', 'mode': 'auto',
-        'ceo_context': '64000',
-        'ceo_max_tokens': '8192',
-        'worker_context': '16000',
-        'worker_max_tokens': '4096',
+        'ceo_context': '200000',
+        'ceo_max_tokens': '16384',
+        'worker_context': '64000',
+        'worker_max_tokens': '8192',
     }
 
     MODE_PRESETS = {
@@ -41,11 +41,11 @@ class CEOMemory:
             "description": "API 模式，256K 大窗口",
         },
         "local": {
-            "ceo_context": "64000",
-            "ceo_max_tokens": "8192",
+            "ceo_context": "200000",
+            "ceo_max_tokens": "16384",
             "worker_context": "64000",
-            "worker_max_tokens": "4096",
-            "description": "本地 64K",
+            "worker_max_tokens": "8192",
+            "description": "本地 200K/64K",
         },
     }
 

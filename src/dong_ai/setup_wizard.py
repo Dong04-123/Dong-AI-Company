@@ -152,7 +152,7 @@ def step_context():
     _title(4, "上下文窗口")
     print(f"  {C.D}建议保持默认值，高级用户可按需调整{C.R}")
     print()
-    ceo = _ask("CEO 上下文", "64000")
+    ceo = _ask("CEO 上下文", "200000")
     if ceo.isdigit(): mem.config_set("ceo_context", ceo)
     worker = _ask("Worker 上下文", "32000")
     if worker.isdigit(): mem.config_set("worker_context", worker)
