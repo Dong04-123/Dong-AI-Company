@@ -356,6 +356,30 @@ def _cmd_detect() -> None:
 def _cmd_run(args) -> None:
     request = " ".join(args) if args else ""
     if not request: print("用法: dong run \"需求\""); return
+
+    # Fast heuristic: detect simple file-edit tasks without LLM
+    is_simple = (
+        len(request) < 200
+        and ("src/" in request or "修改" in request or "replace" in request.lower())
+        and not any(w in request for w in ["build", "create", "design", "架构", "设计", "创建"])
+    )
+
+    if is_simple:
+        # Bypass CEO, go direct to edit worker
+        from dong_ai.model_pool import ModelPool
+        from dong_ai.worker import WorkerPool
+        pool = ModelPool()
+        if not any(p.get("api_key") for p in pool.available()):
+            print(f"  ❌ No API key configured. Run dong setup first.")
+            return
+        print(f"\n  ⚡ Fast mode (simple task detected)")
+        wp = WorkerPool(str(Path.cwd()))
+        task = {"id": "fast_edit", "name": request[:40], "description": request, "deps": [], "difficulty": 1}
+        result = wp.assign_task(task, design=request, context=request, difficulty=1)
+        status = "done" if result.get("status") == "done" else "failed"
+        print(f"  Result: {status}")
+        return
+
     from dong_ai.ceo import CEO
     ceo = CEO(project_dir=str(Path.cwd()))
     ceo.run(request)
