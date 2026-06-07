@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 from .logger import get_logger
+from .display import C
 
 log = get_logger("design")
 
@@ -20,37 +21,47 @@ class DesignEngine:
 
     def design(self, user_request: str, max_retries: int = 3) -> dict:
         """完整设计流程 + 需求清单拆解"""
+        import sys, time
         attempt = 0
         last_score = 0
         current_request = user_request
 
+        print(f"┊    {'─'*40}")
         while attempt < max_retries:
             attempt += 1
             log.info("design_attempt", attempt=attempt, request=current_request[:50])
 
             # 事前验尸
+            print(f"┊    {C.D}▸ 风险分析...{C.R}", end="", flush=True)
             premortem = self.llm.chat([
                 {"role": "user", "content": f"需求：{current_request}\n\n假设项目6个月后彻底失败。列出3-5个最可能的原因和预防措施。"}
             ], system="你是风险分析师。简洁明了。", max_tokens=1024, temperature=0.5)
+            print(f" {C.GN}✓{C.R}")
             self.ds.add_decision("premortem", premortem.text)
 
             # 初始设计
+            print(f"┊    {C.D}▸ 方案设计...{C.R}", end="", flush=True)
             risk_ctx = f"\n\n已识别风险（必须规避）：\n{premortem.text[:500]}"
             design = self.llm.chat([
                 {"role": "user", "content": f"需求：{current_request}\n\n输出完整设计方案。{risk_ctx}"}
             ], system="你是资深架构师。", max_tokens=8192, temperature=0.5)
+            print(f" {C.GN}✓{C.R}")
             self.ds.add_decision("design_initial", design.text)
 
             # 红队审查
+            print(f"┊    {C.D}▸ 红队审查...{C.R}", end="", flush=True)
             red_team = self.llm.chat([
                 {"role": "user", "content": f"审查方案：\n{design.text}\n\n按严重程度列出问题，给出改进建议。"}
             ], system="你是红队审查专家。", max_tokens=4096, temperature=0.7)
+            print(f" {C.GN}✓{C.R}")
             self.ds.add_decision("red_team_review", red_team.text)
 
             # 改进
+            print(f"┊    {C.D}▸ 方案改进...{C.R}", end="", flush=True)
             improved = self.llm.chat([
                 {"role": "user", "content": f"原始方案：\n{design.text}\n\n反馈：\n{red_team.text}\n\n改进输出最终版。"}
             ], system="你是资深架构师。吸收反馈，改进方案。", max_tokens=8192, temperature=0.3)
+            print(f" {C.GN}✓{C.R}")
             self.ds.add_decision("design_final", improved.text)
 
             # 评分
