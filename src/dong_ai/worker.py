@@ -348,7 +348,7 @@ class WorkerPool:
                 f"项目目录: {proj_dir}\n"
                 f"目标文件: {target}\n\n"
                 f"当前文件内容 ({len(current.split(chr(10)))} 行):\n"
-                f"```\n{current[:12000]}\n```\n\n"
+                f"```\n{current[:40000]}\n```\n\n"
                 f"请输出修改后的完整文件内容，用```python ... ```代码块包裹。"
                 f"保持原始文件的缩进和风格。只做必要的修改。"
             )}],
@@ -359,6 +359,11 @@ class WorkerPool:
         new_content = blocks[0] if blocks else ""
 
         if new_content and new_content != current and len(new_content) > 100:
+            # Safety: output should be at least 50% of original length
+            if len(new_content) < len(current) * 0.5 and len(current) > 1000:
+                print(f"        {name}: output too short ({len(new_content)} vs {len(current)} chars), skipped")
+                return {"status": "ok", "files": [], "interfaces": [], "lessons": [],
+                        "review_notes": f"output truncated: {len(new_content)} vs {len(current)}"}
             p = _Path(target)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(new_content, encoding="utf-8")
