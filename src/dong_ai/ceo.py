@@ -195,14 +195,24 @@ class CEO:
                 self._design = design_result["design"]
                 design_text = design_result["design"]
             else:
-                print(f"  📋 简单任务，跳过完整设计流程")
+                print(f"  📋 简单任务，跳过设计流程，单 worker 直接执行")
                 self._design = user_request
                 self._requirements = []
                 design_text = user_request
-                self.ds.add_decision("design_skip", f"简单任务，直接执行: {user_request[:100]}")
+                self.ds.add_decision("design_skip", f"简单任务: {user_request[:100]}")
 
             # 根据项目类型生成管线阶段
-            phases = self._build_pipeline(project_type, design_text)
+            if pre_diff == 1:
+                # 难度1: 单阶段单任务，不产生多 worker 接力
+                phases = [{
+                    "name": "执行",
+                    "tasks": [{
+                        "id": "edit", "name": user_request[:40],
+                        "description": design_text[:200], "deps": [], "difficulty": 1
+                    }]
+                }]
+            else:
+                phases = self._build_pipeline(project_type, design_text)
             self.plan = {"project_name": user_request[:50], "phases": phases}
             (self.plan_path).write_text(json.dumps(self.plan, ensure_ascii=False, indent=2))
             start_idx = 0
