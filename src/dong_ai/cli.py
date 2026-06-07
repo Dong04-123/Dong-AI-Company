@@ -213,7 +213,10 @@ def main() -> None:
     if cmd == "mcp": return _cmd_mcp(args[1:])
     if cmd == "cron": return _cmd_cron(args[1:])
     if cmd == "webhook": return _cmd_webhook(args[1:])
-    if cmd == "setup": return _cmd_setup()
+    if cmd == "setup": 
+        from .setup_wizard import main as wizard_main
+        wizard_main(args[1:])
+        return
     if cmd == "graph": return _cmd_graph(args[1:])
     if cmd == "chat": return _start_tui()
     if cmd in ("update", "upgrade"): return _cmd_update()
@@ -682,128 +685,9 @@ def _cmd_graph(args) -> None:
 # ═══════════════════════════════════════════════════════════
 
 def _cmd_setup() -> None:
-    """交互式配置向导——检测硬件、选模型、设上下文"""
-    from dong_ai.model_pool import ModelPool, PROVIDERS
-    from dong_ai.ceo_memory import CEOMemory
-    import subprocess
-
-    mem = CEOMemory()
-    pool = ModelPool()
-
-    print("╭─ Dong AI 配置向导 ────────────────────────────────╮")
-    print("┊")
-
-    # 1. 硬件检测
-    print("┊  🔍 检测硬件...")
-    gpu_info = ""
-    try:
-        r = subprocess.run(["nvidia-smi", "--query-gpu=memory.total,name",
-                           "--format=csv,noheader,nounits"],
-                           capture_output=True, text=True, timeout=3)
-        if r.returncode == 0 and r.stdout.strip():
-            line = r.stdout.strip().split("\n")[0]
-            parts = [p.strip() for p in line.split(",", 1)]
-            gpu_info = f"{parts[1]} ({parts[0]}MB)" if len(parts) > 1 else f"{parts[0]}MB"
-            print(f"┊     GPU: {gpu_info}")
-    except: pass
-
-    # 2. 模型检测
-    available = pool.available()
-    print(f"┊     发现 {len(available)} 个可用 provider")
-
-    # 3. 选择模式
-    print("┊")
-    print("┊  📋 选择运行模式:")
-    print("┊    [1] 云端模式 — 使用 API（大窗口、快速）")
-    print("┊    [2] 本地模式 — 使用本地模型（免费、隐私）")
-    print("┊    [3] 自动检测（推荐）")
-    choice = input("┊  请输入 [1/2/3] (默认 3): ").strip() or "3"
-
-    mode_map = {"1": "api", "2": "local", "3": "auto"}
-    mode = mode_map.get(choice, "auto")
-    mem.config_set("mode", mode)
-    print(f"┊    模式已设为: {mode}")
-
-    # 4. 选择主模型（列出所有已知 provider 及其所有模型）
-    print("┊")
-    print("┊  📋 可用模型:")
-    all_providers = []
-    for i, (pid, info) in enumerate(PROVIDERS.items(), 1):
-        env_name = info.get("env_key", "")
-        has_key = bool(os.environ.get(env_name)) if env_name else False
-        key_preview = os.environ.get(env_name, "")[:8] + "..." if has_key else "无 key"
-        models_str = ", ".join(info["models"][:4])
-        if len(info["models"]) > 4:
-            models_str += f"... (+{len(info['models'])-4})"
-        all_providers.append({"id": pid, "name": info["name"], "models": info["models"],
-                              "env_key": env_name, "has_key": has_key})
-        print(f"┊    [{i:2d}] {info['name']:<18} {key_preview:<10} {models_str}")
-    print(f"┊    ... 共 {len(all_providers)} 个 provider" if len(all_providers) > 10 else "")
-
-    model_choice = input("┊  选择主模型编号 (默认 1): ").strip() or "1"
-    sel = None
-    sel_model = None
-    if model_choice.isdigit():
-        idx = int(model_choice) - 1
-        if 0 <= idx < len(all_providers):
-            sel = all_providers[idx]
-            models = sel["models"]
-            print(f"┊    ── {sel['name']} 的模型 ──")
-            for mi, m in enumerate(models, 1):
-                print(f"┊      [{mi}] {m}")
-            model_idx = input(f"┊  选择模型编号 (默认 1): ").strip() or "1"
-            if model_idx.isdigit():
-                mi = int(model_idx) - 1
-                if 0 <= mi < len(models):
-                    sel_model = models[mi]
-            if not sel_model:
-                sel_model = models[0]
-            print(f"┊    主模型: {sel['name']} ({sel_model})")
-            mem.config_set("provider", sel["id"])
-            mem.config_set("model", sel_model)
-
-    # 4.5 API Key 录入
-    if sel and not sel.get("has_key"):
-        print("┊")
-        print(f"┊  📋 {sel['name']} 需要 API Key")
-        env_key_name = PROVIDERS.get(sel["id"], {}).get("env_key", "")
-        if env_key_name:
-            new_key = input(f"┊  输入 {sel['name']} API Key (留空跳过): ").strip()
-            if new_key:
-                # 写入 ~/.hermes/.env
-                env_path = Path.home() / ".hermes" / ".env"
-                env_path.parent.mkdir(parents=True, exist_ok=True)
-                env_lines = []
-                if env_path.exists():
-                    env_lines = [l for l in env_path.read_text().split("\n")
-                                 if l.strip() and not l.startswith(f"{env_key_name}=")]
-                env_lines.append(f"{env_key_name}={new_key}")
-                env_path.write_text("\n".join(env_lines) + "\n")
-                # 设到当前环境
-                os.environ[env_key_name] = new_key
-                print(f"┊  ✅ {sel['name']} 已配置")
-    # 5. 上下文配置
-    print("┊")
-    print("┊  📋 上下文窗口配置（输入数字，直接回车使用推荐值）:")
-    ceo_ctx = input(f"┊    CEO 上下文 (推荐 64000): ").strip()
-    if ceo_ctx.isdigit(): mem.config_set("ceo_context", ceo_ctx)
-    worker_ctx = input(f"┊    工人上下文 (推荐 32000): ").strip()
-    if worker_ctx.isdigit(): mem.config_set("worker_context", worker_ctx)
-    ceo_tokens = input(f"┊    CEO 最大回复 (推荐 8192): ").strip()
-    if ceo_tokens.isdigit(): mem.config_set("ceo_max_tokens", ceo_tokens)
-    worker_tokens = input(f"┊    工人最大回复 (推荐 4096): ").strip()
-    if worker_tokens.isdigit(): mem.config_set("worker_max_tokens", worker_tokens)
-
-    # 6. 完成
-    print("┊")
-    print("┊  ✅ 配置已保存")
-    print("┊")
-    print("┊  快速验证:")
-    print("┊    dong detect    查看可用模型")
-    print("┊    dong chat      启动对话")
-    print("┊    dong serve     启动 API 服务")
-    print("┊    dong config list  查看全部配置")
-    print("╰──────────────────────────────────────────────────╯")
+    """交互式配置向导——委托给 setup_wizard 模块"""
+    from .setup_wizard import main as wizard_main
+    wizard_main()
 
 
 def _cmd_make(args: list[str]) -> None:
