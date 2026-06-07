@@ -352,7 +352,7 @@ class WorkerPool:
                 f"项目目录: {proj_dir}\n"
                 f"目标文件: {target}\n\n"
                 f"当前文件内容 ({len(current.split(chr(10)))} 行):\n"
-                f"```\n{current[:40000]}\n```\n\n"
+                f"```\n{current}\n```\n\n"
                 f"请输出修改后的完整文件内容，用```python ... ```代码块包裹。"
                 f"保持原始文件的缩进和风格。只做必要的修改。"
             )}],
