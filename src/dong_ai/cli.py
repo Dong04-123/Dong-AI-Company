@@ -277,7 +277,16 @@ def _cmd_check() -> None:
         print(f"  {C.GN}✅{C.R} 可用模型: {len(available)} 个")
         for p in available[:5]:
             api_hint = " (有 key)" if p.get("api_key") else " (无 key)"
-            print(f"     {p['name']:<15} {p['models'][0][:30]}{api_hint}")
+            model = p['models'][0]
+            try:
+                from dong_ai.ceo_memory import CEOMemory
+                saved = CEOMemory().config_load()
+                sm = saved.get("model", "")
+                sp = saved.get("provider", "")
+                if sm and sp == p["id"] and sm in p["models"]:
+                    model = sm
+            except: pass
+            print(f"     {p['name']:<15} {model[:30]}{api_hint}")
         ok_count += 1
     else:
         issues.append("没有可用模型 → 配置 API Key 或启动本地模型")
