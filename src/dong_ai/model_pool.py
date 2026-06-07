@@ -248,8 +248,19 @@ class ModelPool:
     def _make_client(self, provider: dict, timeout: int = 120):
         """从 provider 配置创建 LLM 客户端"""
         from .llm import LLMConfig, OpenAICompatibleClient
+        # 检查用户是否在 setup 中选择了特定模型
+        model = provider["models"][0]
+        try:
+            from .ceo_memory import CEOMemory
+            saved = CEOMemory().config_load()
+            saved_model = saved.get("model", "")
+            saved_provider = saved.get("provider", "")
+            if saved_model and saved_provider == provider["id"] and saved_model in provider["models"]:
+                model = saved_model
+        except Exception:
+            pass
         config = LLMConfig(
-            model=provider["models"][0],
+            model=model,
             base_url=provider["base_url"],
             api_key=provider.get("api_key", ""),
             timeout=timeout,

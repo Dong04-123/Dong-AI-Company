@@ -742,12 +742,25 @@ def _cmd_setup() -> None:
 
     model_choice = input("┊  选择主模型编号 (默认 1): ").strip() or "1"
     sel = None
+    sel_model = None
     if model_choice.isdigit():
         idx = int(model_choice) - 1
         if 0 <= idx < len(all_providers):
             sel = all_providers[idx]
-            print(f"┊    主模型: {sel['name']} ({sel['models'][0]})")
+            models = sel["models"]
+            print(f"┊    ── {sel['name']} 的模型 ──")
+            for mi, m in enumerate(models, 1):
+                print(f"┊      [{mi}] {m}")
+            model_idx = input(f"┊  选择模型编号 (默认 1): ").strip() or "1"
+            if model_idx.isdigit():
+                mi = int(model_idx) - 1
+                if 0 <= mi < len(models):
+                    sel_model = models[mi]
+            if not sel_model:
+                sel_model = models[0]
+            print(f"┊    主模型: {sel['name']} ({sel_model})")
             mem.config_set("provider", sel["id"])
+            mem.config_set("model", sel_model)
 
     # 4.5 API Key 录入
     if sel and not sel.get("has_key"):
