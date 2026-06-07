@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.3.0"
+__version__ = "0.2.7"
 
 from .ceo import CEO
 from .llm import LLMConfig, LLMResponse, OpenAICompatibleClient, create_client
