@@ -410,6 +410,11 @@ class TestRunFlow:
             "project_name": "TestProj",
             "requirements": [],
         }
+        design_mock.design_medium.return_value = {
+            "design": "# Architecture\nSimplified design",
+            "score": 8.0,
+            "requirements": [],
+        }
         design_mock._last_score = 8.0
         design_mock.get_coverage.return_value = {"missing": []}
 
