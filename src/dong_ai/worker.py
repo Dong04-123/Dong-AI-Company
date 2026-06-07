@@ -287,7 +287,7 @@ class WorkerPool:
             f"请在你的项目目录中工作。使用 read_file 读取现有文件，write_file 写入修改。"
         )
 
-        if "修改" in mission or "翻译" in mission or "替换" in mission or "edit" in mission.lower():
+        if "修改" in mission or "翻译" in mission or "替换" in mission or "重构" in mission or "src/" in user_msg or "refactor" in mission.lower() or "rewrite" in mission.lower() or "edit" in mission.lower():
             return self._worker_edit_impl(name, task_id, self.project_dir, system, user_msg)
         elif "opencode" in tools or "代码" in mission or "写" in mission or "实现" in mission:
             return self._worker_code_impl(name, task_id, w_dir, system, user_msg)
@@ -307,6 +307,11 @@ class WorkerPool:
         )
         blocks = re.findall(r'```(?:\w+)?\n(.*?)```', code, re.DOTALL)
         final = blocks[0] if blocks else code
+        # Safety: skip if output is suspiciously tiny (likely LLM error)
+        if len(final) < 10:
+            print(f"        {name}: output too short ({len(final)} chars), skipped")
+            return {"status": "ok", "files": [], "interfaces": [], "lessons": [],
+                    "review_notes": "output too short, skipped"}
         target_file.write_text(final)
         print(f"        {name}: 写入 {target_file.name} ({len(final)} chars)")
         interfaces = []
