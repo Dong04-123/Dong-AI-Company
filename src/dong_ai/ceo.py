@@ -112,77 +112,46 @@ class CEO:
             print(f"  Dong AI 启动 | {user_request[:40]}")
             print("█" * 60)
 
-            # 识别项目类型
-            project_type = self._detect_project_type(user_request)
-            self._project_type = project_type
-            type_labels = {
-                "software": "💻 软件开发",
-                "novel": "📖 小说创作",
-                "game": "🎮 游戏开发",
-                "analysis": "📊 分析报告",
-                "audit": "🔍 审计审查",
-            }
-            print(f"  📋 识别项目类型: {type_labels.get(project_type, project_type)}")
-
-            # 初始化 ColumnMemory
-            ctx_limit = self._mode_config.get("ceo_context", 64000)
-            from .column_memory import ColumnMemory
-            self._col_mem = ColumnMemory(
-                project_id=project_type,
-                context_limit=ctx_limit,
-            )
-            self._col_mem.register("C0",
-                f"项目: {user_request[:100]}\n类型: {project_type}\n阶段: 设计")
-            self._col_mem.load("C0")
-
-            # 加载相关技能
-            skill_context = ""
+            # 识别项目类型 + 难度评估（合并为一次调用）
             try:
-                from .memory import load_relevant_skills, format_skills_for_prompt
-                skills = load_relevant_skills(user_request)
-                if skills:
-                    skill_context = format_skills_for_prompt(skills)
-                    print(f"  📚 加载 {len(skills)} 个相关技能")
-            except Exception:
-                pass
-
-            # 加载历史经验
-            experience_context = ""
-            if self.experience_engine:
-                try:
-                    experience_context = self.experience_engine.recall(
-                        user_request, project_type)
-                    if experience_context:
-                        print(f"  📖 加载 {experience_context.count('###')} 条历史经验")
-                except Exception:
-                    pass
-
-            # 难度预评估 — 快速判断是否需要完整设计流程
-            print(f"  📋 评估任务难度...")
-            try:
-                diff_resp = self.llm.chat([{"role": "user", "content": (
+                detect_resp = self.llm.chat([{"role": "user", "content": (
                     f"任务：{user_request[:300]}\n\n"
-                    f"评估难度（1-3）：\n"
-                    f"1 = 简单改动（替换文字、修bug、单文件修改）\n"
-                    f"2 = 中等（新增功能、多文件修改、需要设计）\n"
-                    f"3 = 复杂（新项目、多系统、需要架构设计）\n"
-                    f"只输出数字 1/2/3。"
-                )}], system="你是一个项目评估专家。", max_tokens=10, temperature=0.1)
-                pre_diff = int(diff_resp.text.strip())
+                    f"分析：(1)项目类型 software/novel/game/analysis/audit (2)难度 1/2/3\n"
+                    f"1=简单单文件修改, 2=中等多文件, 3=复杂新项目\n"
+                    f"只输出: 类型+数字, 如: software+2"
+                )}], system="分类专家。", max_tokens=20, temperature=0.1)
+                parts = detect_resp.text.strip().split("+")
+                project_type = parts[0].strip().lower() if len(parts) >= 1 else "software"
+                pre_diff = int(parts[1].strip()) if len(parts) >= 2 else 2
             except Exception:
+                project_type = "software"
                 pre_diff = 2
+            self._project_type = project_type
             self._difficulty = pre_diff
-            print(f"  📋 难度等级: {pre_diff}")
+            print(f"  📋 识别: {project_type}  难度: {pre_diff}")
 
             # 设计阶段
             if pre_diff >= 2:
                 print(f"  📋 设计阶段")
+                # 加载技能和经验
+                skill_context = ""
+                try:
+                    from .memory import load_relevant_skills, format_skills_for_prompt
+                    skills = load_relevant_skills(user_request)
+                    if skills:
+                        skill_context = format_skills_for_prompt(skills)
+                except: pass
+                experience_context = ""
+                if self.experience_engine:
+                    try:
+                        experience_context = self.experience_engine.recall(user_request, project_type)
+                    except: pass
                 enriched_request = user_request
                 if skill_context:
                     enriched_request = f"{user_request}\n\n{skill_context}"
                 if experience_context:
                     enriched_request = f"{enriched_request}\n\n{experience_context}"
-                design_result = self.design_engine.design(enriched_request)
+                design_result = self.design_engine.design(enriched_request) if pre_diff >= 3 else self.design_engine.design_medium(enriched_request)
                 print(f"  ✅ 设计完成，评分: {design_result['score']:.1f}")
                 self._requirements = design_result.get("requirements", [])
                 if self._requirements:

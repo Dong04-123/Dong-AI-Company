@@ -322,17 +322,21 @@ class WorkerPool:
 
     # ── 修改类员工（直接改项目文件）──
     def _worker_edit_impl(self, name: str, task_id: str, proj_dir: Path, system: str, user_msg: str) -> dict:
-        # First, have LLM identify what file to modify
-        plan = self._llm_call([{"role": "user", "content": (
-            f"{user_msg}\n\n"
-            f"项目目录: {proj_dir}\n"
-            f"首先，告诉我你要修改哪个文件？列出文件路径和修改方案。"
-        )}], system=system, max_tokens=2048, temperature=0.3)
-
-        # Parse target file from plan (simple heuristic: look for src/ path)
+        # Try to extract target file from user_msg directly (skip LLM call if path is clear)
         import re as _re
-        paths = _re.findall(r'(src/dong_ai/\S+\.py)', plan)
-        target = str(proj_dir / paths[0]) if paths else str(proj_dir / "src/dong_ai/cli.py")
+        direct_paths = _re.findall(r'(src/\\S+\\.py)', user_msg)
+        if direct_paths:
+            target = str(proj_dir / direct_paths[0])
+            plan = f"修改文件: {target}"
+        else:
+            # Fall back to LLM to identify file
+            plan = self._llm_call([{"role": "user", "content": (
+                f"{user_msg}\\n\\n"
+                f"项目目录: {proj_dir}\\n"
+                f"首先，告诉我你要修改哪个文件？列出文件路径和修改方案。"
+            )}], system=system, max_tokens=2048, temperature=0.3)
+            paths = _re.findall(r'(src/dong_ai/\\S+\\.py)', plan)
+            target = str(proj_dir / paths[0]) if paths else str(proj_dir / "src/dong_ai/cli.py")
         
         try:
             from pathlib import Path as _Path

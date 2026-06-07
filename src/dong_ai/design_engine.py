@@ -20,7 +20,7 @@ class DesignEngine:
         self.ds = datastore
 
     def design(self, user_request: str, max_retries: int = 3) -> dict:
-        """完整设计流程 + 需求清单拆解"""
+        """完整设计流程（5步：风险→设计→审查→改进→评分）"""
         import sys, time
         attempt = 0
         last_score = 0
@@ -70,7 +70,7 @@ class DesignEngine:
             ], system="严格的评审委员。8分以上已经很优秀。", max_tokens=200, temperature=0.1)
 
             try:
-                score = float(re.search(r'总分[：:]\s*(\d+\.?\d*)', score_str.text).group(1))
+                score = float(re.search(r'总分[：:]\\s*(\\d+\\.?\\d*)', score_str.text).group(1))
             except:
                 score = 7.0
 
@@ -82,10 +82,39 @@ class DesignEngine:
                 return {"design": improved.text, "score": score, "requirements": requirements}
 
             last_score = score
-            current_request = f"{user_request}\n\n之前评分{score}，请大幅改进。"
+            current_request = f"{user_request}\\n\\n之前评分{score}，请大幅改进。"
 
         requirements = self._extract_requirements(improved.text)
         return {"design": improved.text, "score": last_score, "requirements": requirements}
+
+    def design_medium(self, user_request: str) -> dict:
+        """中等难度设计（3步：设计→审查→改进，省去风险分析和评分循环）"""
+        print(f"┊    {'─'*40}")
+        log.info("design_medium", request=user_request[:50])
+
+        print(f"┊    {C.D}▸ 方案设计...{C.R}", end="", flush=True)
+        design = self.llm.chat([
+            {"role": "user", "content": f"需求：{user_request}\n\n输出完整设计方案。"}
+        ], system="你是资深架构师。", max_tokens=4096, temperature=0.5)
+        print(f" {C.GN}✓{C.R}")
+        self.ds.add_decision("design_initial", design.text)
+
+        print(f"┊    {C.D}▸ 红队审查...{C.R}", end="", flush=True)
+        red_team = self.llm.chat([
+            {"role": "user", "content": f"审查方案：\n{design.text}\n\n按严重程度列出问题。"}
+        ], system="你是红队审查专家。", max_tokens=2048, temperature=0.7)
+        print(f" {C.GN}✓{C.R}")
+        self.ds.add_decision("red_team_review", red_team.text)
+
+        print(f"┊    {C.D}▸ 方案改进...{C.R}", end="", flush=True)
+        improved = self.llm.chat([
+            {"role": "user", "content": f"原始方案：\n{design.text}\n\n反馈：\n{red_team.text}\n\n改进输出最终版。"}
+        ], system="你是资深架构师。", max_tokens=4096, temperature=0.3)
+        print(f" {C.GN}✓{C.R}")
+        self.ds.add_decision("design_final", improved.text)
+
+        requirements = self._extract_requirements(improved.text)
+        return {"design": improved.text, "score": 8.0, "requirements": requirements}
 
     def _extract_requirements(self, design_text: str) -> list:
         """从设计方案中提取可验证的需求清单"""
