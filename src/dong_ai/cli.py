@@ -724,7 +724,7 @@ def _cmd_setup() -> None:
     mem.config_set("mode", mode)
     print(f"┊    模式已设为: {mode}")
 
-    # 4. 选择主模型（列出所有已知 provider，不管有没有 key）
+    # 4. 选择主模型（列出所有已知 provider 及其所有模型）
     print("┊")
     print("┊  📋 可用模型:")
     all_providers = []
@@ -732,10 +732,13 @@ def _cmd_setup() -> None:
         env_name = info.get("env_key", "")
         has_key = bool(os.environ.get(env_name)) if env_name else False
         key_preview = os.environ.get(env_name, "")[:8] + "..." if has_key else "无 key"
+        models_str = ", ".join(info["models"][:4])
+        if len(info["models"]) > 4:
+            models_str += f"... (+{len(info['models'])-4})"
         all_providers.append({"id": pid, "name": info["name"], "models": info["models"],
                               "env_key": env_name, "has_key": has_key})
-        print(f"┊    [{i}] {info['name']:<18} {info['models'][0]:<35} {key_preview}")
-    print(f"┊    ... 共 {len(all_providers)} 个" if len(all_providers) > 10 else "")
+        print(f"┊    [{i:2d}] {info['name']:<18} {key_preview:<10} {models_str}")
+    print(f"┊    ... 共 {len(all_providers)} 个 provider" if len(all_providers) > 10 else "")
 
     model_choice = input("┊  选择主模型编号 (默认 1): ").strip() or "1"
     sel = None
@@ -852,7 +855,10 @@ def _cmd_gateway(args: list[str]) -> None:
         for p in providers:
             status = "●" if p["has_key"] else "○"
             task = _gateway_best_task(p["id"])
-            print(f"  {status} {p['id']:<16} {p['speed']:>4}  {p['quality']:>4}  {p['context_score']:>4}  {task:<20}")
+            models_str = ", ".join(p["models"][:2])
+            if len(p["models"]) > 2:
+                models_str += f"..."
+            print(f"  {status} {p['id']:<16} {p['speed']:>4}  {p['quality']:>4}  {p['context_score']:>4}  {task:<12} {models_str}")
         print(f"  {'─'*65}")
         providers_with_keys = [p for p in providers if p["has_key"]]
         if providers_with_keys:
