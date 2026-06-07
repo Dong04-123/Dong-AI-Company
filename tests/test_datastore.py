@@ -391,8 +391,8 @@ class TestConfigRepo:
         from dong_ai.ceo_memory import CEOMemory
         mem = CEOMemory()
         cfg = mem.config_load()
-        assert cfg["context_length"] == "32768"
-        assert cfg["max_response"] == "8192"
+        assert cfg["context_length"] == "200000"
+        assert cfg["max_response"] == "16384"
         assert "mode" in cfg
 
     def test_config_set_and_load(self, isolated_datastore, temp_dir):

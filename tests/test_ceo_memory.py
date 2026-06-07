@@ -171,8 +171,8 @@ class TestCEOMemoryConfig:
 
     def test_config_defaults(self, ceo_memory):
         cfg = ceo_memory.config_load()
-        assert cfg["context_length"] == "32768"
-        assert cfg["max_response"] == "8192"
+        assert cfg["context_length"] == "200000"
+        assert cfg["max_response"] == "16384"
 
     def test_config_set_get(self, ceo_memory):
         ceo_memory.config_set("temperature", "0.5")
