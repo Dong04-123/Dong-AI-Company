@@ -492,6 +492,7 @@ class TestErrorHandling:
         from dong_ai.design_engine import DesignEngine
         design_mock = MagicMock(spec=DesignEngine)
         design_mock.design.side_effect = RuntimeError("Design failed")
+        design_mock.design_medium.side_effect = RuntimeError("Design failed")
 
         ceo = CEO(
             project_dir=str(tmp_path),
